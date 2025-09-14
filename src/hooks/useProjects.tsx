@@ -44,10 +44,6 @@ export function useProjects() {
           customers (
             id,
             name
-          ),
-          user_profiles!projects_project_manager_id_fkey (
-            id,
-            full_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -113,6 +109,37 @@ export function useProjects() {
       }, {} as Record<string, number>) || {};
 
       return assignmentsByProject;
+    },
+    enabled: !!projects?.length,
+  });
+
+  // Get project managers
+  const { data: projectManagers } = useQuery({
+    queryKey: ['project_managers'],
+    queryFn: async () => {
+      if (!projects?.length) return {};
+
+      const managerIds = projects
+        .map(p => p.project_manager_id)
+        .filter(Boolean) as string[];
+
+      if (managerIds.length === 0) return {};
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, full_name')
+        .in('id', managerIds);
+
+      if (error) {
+        console.error('Error fetching project managers:', error);
+        return {};
+      }
+
+      // Convert to object for easier lookup
+      return data?.reduce((acc, manager) => {
+        acc[manager.id] = manager;
+        return acc;
+      }, {} as Record<string, { id: string; full_name: string }>) || {};
     },
     enabled: !!projects?.length,
   });
@@ -233,7 +260,7 @@ export function useProjects() {
     spent: projectExpenses?.[project.id] || 0,
     teamSize: projectAssignments?.[project.id] || 0,
     client: project.customers?.name || 'Unknown Client',
-    manager: project.user_profiles?.full_name || 'Unassigned',
+    manager: projectManagers?.[project.project_manager_id || '']?.full_name || 'Unassigned',
   })) || [];
 
   return {
