@@ -7,71 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { useProducts } from "@/hooks/useProducts";
+import { AddProductDialog } from "@/components/inventory/AddProductDialog";
 
 const InventoryOverview = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  const inventoryItems = [
-    {
-      id: "CON-001",
-      name: "Concrete Mix #1",
-      category: "Concrete",
-      quantity: 45,
-      unit: "bags",
-      minStock: 20,
-      location: "Warehouse A",
-      supplier: "ABC Concrete Co.",
-      unitCost: 25.99,
-      totalValue: 1169.55,
-      lastUpdated: "2024-01-15",
-      status: "adequate"
-    },
-    {
-      id: "REB-004",
-      name: "Rebar #4",
-      category: "Steel",
-      quantity: 5,
-      unit: "pieces",
-      minStock: 10,
-      location: "Yard B",
-      supplier: "Steel Works Inc.",
-      unitCost: 45.00,
-      totalValue: 225.00,
-      lastUpdated: "2024-01-14",
-      status: "low"
-    },
-    {
-      id: "CEM-001",
-      name: "Portland Cement",
-      category: "Cement",
-      quantity: 120,
-      unit: "bags",
-      minStock: 50,
-      location: "Warehouse A",
-      supplier: "Cement Direct",
-      unitCost: 12.50,
-      totalValue: 1500.00,
-      lastUpdated: "2024-01-16",
-      status: "adequate"
-    },
-    {
-      id: "AGG-001",
-      name: "Aggregate Stone",
-      category: "Aggregate",
-      quantity: 200,
-      unit: "tons",
-      minStock: 100,
-      location: "Yard C",
-      supplier: "Rock Quarry LLC",
-      unitCost: 35.00,
-      totalValue: 7000.00,
-      lastUpdated: "2024-01-15",
-      status: "high"
-    }
-  ];
+  const { products, isLoading } = useProducts();
 
-  const getStatusBadge = (status: string, quantity: number, minStock: number) => {
+  const getStatusBadge = (quantity: number, minStock: number) => {
     if (quantity <= minStock * 0.5) {
       return { variant: "destructive", label: "Critical", icon: AlertTriangle };
     } else if (quantity <= minStock) {
@@ -83,18 +28,20 @@ const InventoryOverview = () => {
     }
   };
 
-  const categories = ["all", "Concrete", "Steel", "Cement", "Aggregate"];
+  // Get unique categories from products
+  const categories = ["all", ...(products ? Array.from(new Set(products.map(p => (p as any).product_categories?.name).filter(Boolean))) : [])];
   
-  const filteredItems = inventoryItems.filter(item => {
+  const filteredItems = products?.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
+                         item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const categoryName = (item as any).product_categories?.name;
+    const matchesCategory = selectedCategory === "all" || categoryName === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }) || [];
 
-  const totalValue = inventoryItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = inventoryItems.filter(item => item.quantity <= item.minStock).length;
-  const criticalItems = inventoryItems.filter(item => item.quantity <= item.minStock * 0.5).length;
+  const totalValue = products?.reduce((sum, item) => sum + (item.current_stock * (item.mauc || 0)), 0) || 0;
+  const lowStockItems = products?.filter(item => item.current_stock <= item.min_stock_level).length || 0;
+  const criticalItems = products?.filter(item => item.current_stock <= item.min_stock_level * 0.5).length || 0;
 
   return (
     <AppLayout title="Inventory Overview" subtitle="Manage your construction materials and supplies">
@@ -121,7 +68,7 @@ const InventoryOverview = () => {
                 <div>
                   <p className="text-sm font-inter text-muted-foreground">Total Items</p>
                   <p className="text-2xl font-montserrat font-bold text-foreground">
-                    {inventoryItems.length}
+                    {products?.length || 0}
                   </p>
                 </div>
                 <Package className="h-8 w-8 text-info" />
@@ -195,10 +142,12 @@ const InventoryOverview = () => {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="primary" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
+            <AddProductDialog>
+              <Button variant="primary" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
+            </AddProductDialog>
           </div>
         </div>
 
@@ -211,55 +160,62 @@ const InventoryOverview = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-inter font-semibold">SKU</TableHead>
-                  <TableHead className="font-inter font-semibold">Item Name</TableHead>
-                  <TableHead className="font-inter font-semibold">Category</TableHead>
-                  <TableHead className="font-inter font-semibold">Quantity</TableHead>
-                  <TableHead className="font-inter font-semibold">Location</TableHead>
-                  <TableHead className="font-inter font-semibold">Unit Cost</TableHead>
-                  <TableHead className="font-inter font-semibold">Total Value</TableHead>
-                  <TableHead className="font-inter font-semibold">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => {
-                  const statusBadge = getStatusBadge(item.status, item.quantity, item.minStock);
-                  const StatusIcon = statusBadge.icon;
-                  
-                  return (
-                    <TableRow key={item.id} className="hover:bg-secondary/50">
-                      <TableCell className="font-inter font-medium">{item.id}</TableCell>
-                      <TableCell className="font-inter">{item.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-inter">
-                          {item.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-inter">
-                        {item.quantity} {item.unit}
-                      </TableCell>
-                      <TableCell className="font-inter">{item.location}</TableCell>
-                      <TableCell className="font-inter">${item.unitCost}</TableCell>
-                      <TableCell className="font-inter font-medium">
-                        ${item.totalValue.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={statusBadge.variant as any}
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {statusBadge.label}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            {isLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <p className="text-muted-foreground font-inter">Loading inventory...</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-inter font-semibold">SKU</TableHead>
+                    <TableHead className="font-inter font-semibold">Item Name</TableHead>
+                    <TableHead className="font-inter font-semibold">Category</TableHead>
+                    <TableHead className="font-inter font-semibold">Quantity</TableHead>
+                    <TableHead className="font-inter font-semibold">Location</TableHead>
+                    <TableHead className="font-inter font-semibold">Unit Cost</TableHead>
+                    <TableHead className="font-inter font-semibold">Total Value</TableHead>
+                    <TableHead className="font-inter font-semibold">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => {
+                    const statusBadge = getStatusBadge(item.current_stock, item.min_stock_level);
+                    const StatusIcon = statusBadge.icon;
+                    const totalValue = item.current_stock * (item.mauc || 0);
+                    
+                    return (
+                      <TableRow key={item.id} className="hover:bg-secondary/50">
+                        <TableCell className="font-inter font-medium">{item.sku}</TableCell>
+                        <TableCell className="font-inter">{item.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-inter">
+                            {(item as any).product_categories?.name || 'Uncategorized'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-inter">
+                          {item.current_stock} {item.unit_of_measure}
+                        </TableCell>
+                        <TableCell className="font-inter">{item.location || (item as any).inventory_locations?.name || 'N/A'}</TableCell>
+                        <TableCell className="font-inter">${item.mauc?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell className="font-inter font-medium">
+                          ${totalValue.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant as any}
+                            className="flex items-center gap-1 w-fit"
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {statusBadge.label}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
