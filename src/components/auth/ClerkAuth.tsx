@@ -1,6 +1,8 @@
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Building2 } from "lucide-react";
 
 export function ClerkAuthGuard({ children }: { children: React.ReactNode }) {
@@ -10,10 +12,44 @@ export function ClerkAuthGuard({ children }: { children: React.ReactNode }) {
         <AuthenticationScreen />
       </SignedOut>
       <SignedIn>
-        {children}
+        <ProfileSyncWrapper>
+          {children}
+        </ProfileSyncWrapper>
       </SignedIn>
     </>
   );
+}
+
+function ProfileSyncWrapper({ children }: { children: React.ReactNode }) {
+  const { loading, error } = useUserProfile();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="space-y-4 text-center">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl text-destructive">Profile Sync Error</CardTitle>
+            <CardDescription>
+              Failed to sync your profile. Please try signing out and back in.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function AuthenticationScreen() {

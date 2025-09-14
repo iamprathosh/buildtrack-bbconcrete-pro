@@ -31,6 +31,8 @@ import ForecastingDashboard from "./pages/reports/ForecastingDashboard";
 // Inventory
 import InventoryOverview from "./pages/inventory/InventoryOverview";
 import ProductDetail from "./pages/inventory/ProductDetail";
+import AddProduct from "./pages/inventory/AddProduct";
+import BulkImport from "./pages/inventory/BulkImport";
 import LocationManagement from "./pages/inventory/LocationManagement";
 import InventoryTransfer from "./pages/inventory/InventoryTransfer";
 import CycleCount from "./pages/inventory/CycleCount";
@@ -96,6 +98,8 @@ const App = () => (
             
             {/* Inventory */}
             <Route path="/inventory" element={<InventoryOverview />} />
+            <Route path="/inventory/add" element={<AddProduct />} />
+            <Route path="/inventory/bulk-import" element={<BulkImport />} />
             <Route path="/inventory/:id" element={<ProductDetail />} />
             <Route path="/inventory/locations" element={<LocationManagement />} />
             <Route path="/inventory/transfer" element={<InventoryTransfer />} />
