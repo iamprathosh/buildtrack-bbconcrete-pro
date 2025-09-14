@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { LoginForm } from "@/components/auth/LoginForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,28 +15,7 @@ import {
 } from "lucide-react";
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Show login form if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div>
-        <LoginForm />
-        {/* Demo button to skip login for testing */}
-        <div className="fixed bottom-4 right-4">
-          <Button
-            onClick={() => setIsAuthenticated(true)}
-            variant="outline"
-            size="sm"
-          >
-            Demo Access
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Main Dashboard
+  // Main Dashboard - Clerk authentication is handled by ClerkAuthGuard in App.tsx
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
