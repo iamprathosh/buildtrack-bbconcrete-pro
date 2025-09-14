@@ -1,0 +1,9 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- B&B Concrete Logo Mark -->
+  <rect x="4" y="8" width="24" height="24" rx="4" fill="#153275"/>
+  <text x="16" y="24" text-anchor="middle" fill="white" font-family="Montserrat" font-weight="700" font-size="12">B&B</text>
+  
+  <!-- Company Name -->
+  <text x="36" y="18" fill="#153275" font-family="Montserrat" font-weight="700" font-size="14">BuildTrack</text>
+  <text x="36" y="28" fill="#898989" font-family="Inter" font-weight="400" font-size="8">by B&B Concrete</text>
+</svg>
