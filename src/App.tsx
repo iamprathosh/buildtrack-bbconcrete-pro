@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ClerkAuthGuard } from "./components/auth/ClerkAuth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -70,69 +71,68 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          
-          {/* Authentication & User Profile */}
-          <Route path="/login" element={<Index />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/setup-2fa" element={<Setup2FA />} />
-          
-          {/* Global Application Interface */}
-          <Route path="/notifications" element={<NotificationCenter />} />
-          
-          {/* Worker-Specific Screens */}
-          <Route path="/worker/projects" element={<WorkerProjectSelection />} />
-          <Route path="/worker/inventory" element={<WorkerInventory />} />
-          <Route path="/worker/scan" element={<BarcodeScanning />} />
-          <Route path="/worker/requisitions" element={<WorkerRequisitions />} />
-          <Route path="/worker/equipment" element={<WorkerEquipment />} />
-          
-          {/* Dashboard & Analytics */}
-          <Route path="/reports/builder" element={<ReportBuilder />} />
-          <Route path="/reports/saved" element={<SavedReports />} />
-          <Route path="/reports/forecasting" element={<ForecastingDashboard />} />
-          
-          {/* Inventory */}
-          <Route path="/inventory" element={<InventoryOverview />} />
-          <Route path="/inventory/:id" element={<ProductDetail />} />
-          <Route path="/inventory/locations" element={<LocationManagement />} />
-          <Route path="/inventory/transfer" element={<InventoryTransfer />} />
-          <Route path="/inventory/audit" element={<CycleCount />} />
-          <Route path="/inventory/categories" element={<CategoryManagement />} />
-          <Route path="/inventory/requisitions" element={<RequisitionApproval />} />
-          
-          {/* Projects */}
-          <Route path="/projects" element={<ProjectsOverview />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/customers" element={<CustomerManagement />} />
-          <Route path="/projects/:id/expenses" element={<ExpenseManagement />} />
-          <Route path="/projects/:id/invoices" element={<CustomerInvoicing />} />
-          
-          {/* Procurement & Vendors */}
-          <Route path="/vendors" element={<VendorsOverview />} />
-          <Route path="/vendors/:id" element={<VendorDetail />} />
-          <Route path="/procurement" element={<PurchaseOrderManagement />} />
-          <Route path="/procurement/invoices" element={<VendorInvoiceManagement />} />
-          
-          {/* Equipment & Assets */}
-          <Route path="/equipment" element={<EquipmentOverview />} />
-          <Route path="/equipment/:id" element={<EquipmentDetail />} />
-          <Route path="/equipment/maintenance" element={<MaintenanceLog />} />
-          
-          {/* Super Admin Only */}
-          <Route path="/users" element={<UserManagement />} />
-          <Route path="/users/roles" element={<RolePermissionManagement />} />
-          <Route path="/system/audit" element={<SystemAuditLog />} />
-          <Route path="/settings" element={<SystemSettings />} />
-          <Route path="/system/data" element={<DataManagement />} />
-          <Route path="/system/backup" element={<BackupRecovery />} />
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ClerkAuthGuard>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Index />} />
+            
+            {/* Authentication & User Profile */}
+            <Route path="/profile" element={<Profile />} />
+            
+            {/* Global Application Interface */}
+            <Route path="/notifications" element={<NotificationCenter />} />
+            
+            {/* Worker-Specific Screens */}
+            <Route path="/worker/projects" element={<WorkerProjectSelection />} />
+            <Route path="/worker/inventory" element={<WorkerInventory />} />
+            <Route path="/worker/scan" element={<BarcodeScanning />} />
+            <Route path="/worker/requisitions" element={<WorkerRequisitions />} />
+            <Route path="/worker/equipment" element={<WorkerEquipment />} />
+            
+            {/* Dashboard & Analytics */}
+            <Route path="/reports/builder" element={<ReportBuilder />} />
+            <Route path="/reports/saved" element={<SavedReports />} />
+            <Route path="/reports/forecasting" element={<ForecastingDashboard />} />
+            
+            {/* Inventory */}
+            <Route path="/inventory" element={<InventoryOverview />} />
+            <Route path="/inventory/:id" element={<ProductDetail />} />
+            <Route path="/inventory/locations" element={<LocationManagement />} />
+            <Route path="/inventory/transfer" element={<InventoryTransfer />} />
+            <Route path="/inventory/audit" element={<CycleCount />} />
+            <Route path="/inventory/categories" element={<CategoryManagement />} />
+            <Route path="/inventory/requisitions" element={<RequisitionApproval />} />
+            
+            {/* Projects */}
+            <Route path="/projects" element={<ProjectsOverview />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/customers" element={<CustomerManagement />} />
+            <Route path="/projects/:id/expenses" element={<ExpenseManagement />} />
+            <Route path="/projects/:id/invoices" element={<CustomerInvoicing />} />
+            
+            {/* Procurement & Vendors */}
+            <Route path="/vendors" element={<VendorsOverview />} />
+            <Route path="/vendors/:id" element={<VendorDetail />} />
+            <Route path="/procurement" element={<PurchaseOrderManagement />} />
+            <Route path="/procurement/invoices" element={<VendorInvoiceManagement />} />
+            
+            {/* Equipment & Assets */}
+            <Route path="/equipment" element={<EquipmentOverview />} />
+            <Route path="/equipment/:id" element={<EquipmentDetail />} />
+            <Route path="/equipment/maintenance" element={<MaintenanceLog />} />
+            
+            {/* Super Admin Only */}
+            <Route path="/users" element={<UserManagement />} />
+            <Route path="/users/roles" element={<RolePermissionManagement />} />
+            <Route path="/system/audit" element={<SystemAuditLog />} />
+            <Route path="/settings" element={<SystemSettings />} />
+            <Route path="/system/data" element={<DataManagement />} />
+            <Route path="/system/backup" element={<BackupRecovery />} />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ClerkAuthGuard>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

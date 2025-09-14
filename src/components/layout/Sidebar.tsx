@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ClerkUserButton } from "@/components/auth/ClerkAuth";
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -12,7 +13,6 @@ import {
   Wrench,
   Home,
   Bell,
-  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -97,17 +97,9 @@ export function Sidebar({ className }: SidebarProps) {
           </Link>
         </Button>
         
-        <Button
-          asChild
-          variant="ghost"
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          size={collapsed ? "icon" : "default"}
-        >
-          <Link to="/login">
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="ml-3 font-inter">Sign Out</span>}
-          </Link>
-        </Button>
+        <div className="flex justify-center mt-2">
+          <ClerkUserButton />
+        </div>
       </div>
 
       {/* Collapse Toggle */}
