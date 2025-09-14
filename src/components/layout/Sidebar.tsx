@@ -15,6 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import BBLogo from "@/assets/bb-logo.jpg";
 
 interface SidebarProps {
@@ -22,18 +23,19 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: Home, current: true },
-  { name: "Inventory", href: "/inventory", icon: Package, current: false },
-  { name: "Projects", href: "/projects", icon: Building2, current: false },
-  { name: "Reports", href: "/reports", icon: BarChart3, current: false },
-  { name: "Procurement", href: "/procurement", icon: ShoppingCart, current: false },
-  { name: "Equipment", href: "/equipment", icon: Wrench, current: false },
-  { name: "Users", href: "/users", icon: Users, current: false },
-  { name: "Settings", href: "/settings", icon: Settings, current: false },
+  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Projects", href: "/projects", icon: Building2 },
+  { name: "Reports", href: "/reports/builder", icon: BarChart3 },
+  { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+  { name: "Equipment", href: "/equipment", icon: Wrench },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
 
   return (
     <div
@@ -59,19 +61,23 @@ export function Sidebar({ className }: SidebarProps) {
       <nav className="flex-1 space-y-1 px-2 py-4">
         {navigation.map((item) => {
           const Icon = item.icon;
+          const isActive = location.pathname === item.href;
           return (
             <Button
               key={item.name}
-              variant={item.current ? "secondary" : "ghost"}
+              asChild
+              variant={isActive ? "secondary" : "ghost"}
               className={cn(
                 "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent",
                 collapsed ? "px-2" : "px-3",
-                item.current && "bg-sidebar-accent text-sidebar-accent-foreground"
+                isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
               )}
               size={collapsed ? "icon" : "default"}
             >
-              <Icon className="h-5 w-5" />
-              {!collapsed && <span className="ml-3 font-inter">{item.name}</span>}
+              <Link to={item.href}>
+                <Icon className="h-5 w-5" />
+                {!collapsed && <span className="ml-3 font-inter">{item.name}</span>}
+              </Link>
             </Button>
           );
         })}
@@ -80,21 +86,27 @@ export function Sidebar({ className }: SidebarProps) {
       {/* User Actions */}
       <div className="border-t border-sidebar-border p-2">
         <Button
+          asChild
           variant="ghost"
           className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
           size={collapsed ? "icon" : "default"}
         >
-          <Bell className="h-5 w-5" />
-          {!collapsed && <span className="ml-3 font-inter">Notifications</span>}
+          <Link to="/notifications">
+            <Bell className="h-5 w-5" />
+            {!collapsed && <span className="ml-3 font-inter">Notifications</span>}
+          </Link>
         </Button>
         
         <Button
+          asChild
           variant="ghost"
           className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
           size={collapsed ? "icon" : "default"}
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span className="ml-3 font-inter">Sign Out</span>}
+          <Link to="/login">
+            <LogOut className="h-5 w-5" />
+            {!collapsed && <span className="ml-3 font-inter">Sign Out</span>}
+          </Link>
         </Button>
       </div>
 
