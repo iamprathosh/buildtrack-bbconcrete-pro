@@ -15,3 +15,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// For Clerk integration, use the useSupabaseClient hook instead
+// import { useSupabaseClient } from "@/hooks/useSupabaseClient";
