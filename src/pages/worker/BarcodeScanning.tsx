@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Camera, Package, CheckCircle, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 const BarcodeScanning = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -53,7 +53,7 @@ const BarcodeScanning = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <img src={BBLogo} alt="BuildTrack" className="h-6 brightness-0 invert" />
+          <img src={BBLogo} alt="BuildTrack" className="h-6" />
           <div>
             <h1 className="font-montserrat font-bold text-lg">Barcode Scanner</h1>
             <p className="font-inter text-sm opacity-90">Scan items to manage inventory</p>

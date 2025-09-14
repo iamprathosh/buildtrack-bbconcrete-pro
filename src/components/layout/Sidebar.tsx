@@ -15,7 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 interface SidebarProps {
   className?: string;
@@ -51,7 +51,7 @@ export function Sidebar({ className }: SidebarProps) {
             <span className="text-xs font-bold text-sidebar-primary-foreground">B&B</span>
           </div>
         ) : (
-          <img src={BBLogo} alt="BuildTrack" className="h-8 brightness-0 invert" />
+          <img src={BBLogo} alt="BuildTrack" className="h-8" />
         )}
       </div>
 

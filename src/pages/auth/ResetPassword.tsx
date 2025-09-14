@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");

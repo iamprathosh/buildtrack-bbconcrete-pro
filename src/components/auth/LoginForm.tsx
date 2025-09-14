@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 export const LoginForm = () => {
   const [email, setEmail] = useState("");

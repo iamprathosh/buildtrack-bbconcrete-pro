@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, Minus, Plus, RotateCcw, Search, ScanLine } from "lucide-react";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 const WorkerInventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,7 +66,7 @@ const WorkerInventory = () => {
       <div className="bg-primary text-primary-foreground p-4 sticky top-0 z-10">
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-3 mb-3">
-            <img src={BBLogo} alt="BuildTrack" className="h-6 brightness-0 invert" />
+            <img src={BBLogo} alt="BuildTrack" className="h-6" />
             <div>
               <h1 className="font-montserrat font-bold text-lg">Worker Inventory</h1>
               <p className="font-inter text-xs opacity-90">Manage materials for your project</p>

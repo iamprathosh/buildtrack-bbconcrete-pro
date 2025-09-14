@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Smartphone, Download, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 import { useToast } from "@/hooks/use-toast";
 
 const Setup2FA = () => {

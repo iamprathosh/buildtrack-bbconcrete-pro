@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Building2, MapPin, Calendar, Search, Users } from "lucide-react";
-import BBLogo from "@/assets/bb-logo.svg";
+import BBLogo from "@/assets/bb-logo.jpg";
 
 const WorkerProjectSelection = () => {
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
@@ -51,7 +51,7 @@ const WorkerProjectSelection = () => {
       <div className="bg-primary text-primary-foreground p-6">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={BBLogo} alt="BuildTrack" className="h-8 brightness-0 invert" />
+            <img src={BBLogo} alt="BuildTrack" className="h-8" />
             <div>
               <h1 className="font-montserrat font-bold text-xl">Select Project</h1>
               <p className="font-inter text-sm opacity-90">Choose your assigned project</p>
