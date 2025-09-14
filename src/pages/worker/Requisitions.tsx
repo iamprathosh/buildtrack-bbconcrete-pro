@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, FileText, Clock, CheckCircle, X, Search } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useRequisitions } from "@/hooks/useRequisitions";
+import { normalizeRequisitions } from "@/lib/normalize";
 
 const WorkerRequisitions = () => {
   const { myRequisitions, isLoadingMy } = useRequisitions();
@@ -62,15 +63,38 @@ const WorkerRequisitions = () => {
     }
   };
 
-  // Use real data if available, otherwise fall back to mock data
+  // Use normalized data structure for consistent display  
   const displayRequisitions = myRequisitions.length > 0 ? myRequisitions : mockRequisitions;
   
-  const filteredRequisitions = displayRequisitions.filter(req =>
-    (req.requisition_number || req.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (req.requisition_items || req.items)?.some((item: any) => 
-      (item.product?.name || item.name)?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const filteredRequisitions = displayRequisitions.filter(req => {
+    const reqId = getReqId(req);
+    const items = getReqItems(req);
+    
+    return reqId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           items.some((item: any) => 
+             (item.product?.name || item.name)?.toLowerCase().includes(searchTerm.toLowerCase())
+           );
+  });
+
+  function getReqId(req: any) {
+    return req.requisition_number || req.id;
+  }
+
+  function getReqItems(req: any) {
+    return req.requisition_items || req.items || [];
+  }
+
+  function getReqDate(req: any) {
+    return req.created_at || req.requestDate;
+  }
+
+  function getProjectName(req: any) {
+    return req.project?.name || 'N/A';
+  }
+
+  function getApprovalDate(req: any) {
+    return req.approved_date || req.approvedDate;
+  }
 
   return (
     <AppLayout title="My Requisitions" subtitle="Track your material requests">
@@ -112,10 +136,10 @@ const WorkerRequisitions = () => {
                       <div>
                         <CardTitle className="flex items-center gap-2 font-montserrat">
                           <FileText className="h-5 w-5 text-primary" />
-                          {requisition.requisition_number || requisition.id}
+                          {getReqId(requisition)}
                         </CardTitle>
                         <CardDescription className="font-inter">
-                          Requested on {new Date(requisition.created_at || requisition.requestDate).toLocaleDateString()}
+                          Requested on {new Date(getReqDate(requisition)).toLocaleDateString()}
                         </CardDescription>
                       </div>
                       <Badge 
@@ -135,7 +159,7 @@ const WorkerRequisitions = () => {
                         Requested Items:
                       </h4>
                       <div className="space-y-1">
-                        {(requisition.requisition_items || requisition.items || []).map((item: any, index: number) => (
+                        {getReqItems(requisition).map((item: any, index: number) => (
                           <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
                             <span className="font-inter text-sm">
                               {item.product?.name || item.name}
@@ -165,15 +189,15 @@ const WorkerRequisitions = () => {
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-inter text-muted-foreground">Project:</span>
                         <span className="font-inter font-medium">
-                          {requisition.project?.name || 'N/A'}
+                          {getProjectName(requisition)}
                         </span>
                       </div>
                       
-                      {requisition.status === "approved" && requisition.approved_date && (
+                      {requisition.status === "approved" && getApprovalDate(requisition) && (
                         <div className="flex justify-between items-center text-sm">
                           <span className="font-inter text-muted-foreground">Approved:</span>
                           <span className="font-inter font-medium">
-                            {new Date(requisition.approved_date).toLocaleDateString()}
+                            {new Date(getApprovalDate(requisition)).toLocaleDateString()}
                           </span>
                         </div>
                       )}

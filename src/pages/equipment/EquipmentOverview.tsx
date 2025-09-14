@@ -11,6 +11,7 @@ import { Wrench, Search, Plus, Filter, User, Calendar, Settings, CheckCircle, Cl
 import { useEquipment } from "@/hooks/useEquipment";
 import { AdminManagerGuard } from "@/components/auth/RoleGuard";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { normalizeEquipment } from "@/lib/normalize";
 
 const EquipmentOverview = () => {
   const { equipment, isLoading, checkOutEquipment, returnEquipment } = useEquipment();
@@ -128,22 +129,13 @@ const EquipmentOverview = () => {
 
   const statuses = ["all", "available", "checked_out", "maintenance", "retired"];
   
-  // Normalize data structure for consistent display
-  const normalizeEquipment = (items: any[]) => items.map(item => ({
-    ...item,
-    equipment_number: item.equipment_number || item.id,
-    category: item.category || item.type,
-    checked_out_to: item.checked_out_to || item.checkedOutBy,
-    purchase_cost: item.purchase_cost || item.purchasePrice,
-    nextMaintenance: item.nextMaintenance
-  }));
-  
+  // Use normalized data structure for consistent display
   const displayEquipment = equipment.length > 0 ? normalizeEquipment(equipment) : normalizeEquipment(mockEquipmentData);
   
   const filteredEquipment = displayEquipment.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.type.toLowerCase().includes(searchTerm.toLowerCase());
+                         item.equipment_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

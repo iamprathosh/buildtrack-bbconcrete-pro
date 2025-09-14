@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Search, Plus, Download, Eye, Edit, Clock, CheckCircle, AlertTriangle, Truck } from "lucide-react";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 import { AdminManagerGuard } from "@/components/auth/RoleGuard";
+import { normalizePurchaseOrders } from "@/lib/normalize";
 
 const PurchaseOrderManagement = () => {
   const { purchaseOrders, isLoading } = usePurchaseOrders();
@@ -93,11 +94,11 @@ const PurchaseOrderManagement = () => {
 
   const statuses = ["all", "draft", "sent", "acknowledged", "received", "closed", "cancelled"];
   
-  // Use real data if available, otherwise fall back to mock data
-  const displayOrders = purchaseOrders.length > 0 ? purchaseOrders : mockPurchaseOrders;
+  // Use normalized data structure for consistent display
+  const displayOrders = purchaseOrders.length > 0 ? normalizePurchaseOrders(purchaseOrders) : normalizePurchaseOrders(mockPurchaseOrders);
   
   const filteredOrders = displayOrders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.project.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
@@ -106,7 +107,7 @@ const PurchaseOrderManagement = () => {
 
   const totalPOs = displayOrders.length;
   const pendingPOs = displayOrders.filter(po => po.status === "pending" || po.status === "draft").length;
-  const totalValue = displayOrders.reduce((sum, po) => sum + (po.total_amount || po.totalAmount || 0), 0);
+  const totalValue = displayOrders.reduce((sum, po) => sum + po.total_amount, 0);
   const deliveredPOs = displayOrders.filter(po => po.status === "delivered" || po.status === "received").length;
 
   return (
@@ -250,22 +251,22 @@ const PurchaseOrderManagement = () => {
                     return (
                       <TableRow key={order.id} className="hover:bg-secondary/50">
                         <TableCell className="font-inter font-medium">
-                          {order.po_number || order.id}
+                          {order.po_number}
                         </TableCell>
                         <TableCell className="font-inter">
-                          {order.vendor?.name || order.vendor}
+                          {order.vendor}
                         </TableCell>
                         <TableCell className="font-inter">
-                          {order.project?.name || order.project}
+                          {order.project}
                         </TableCell>
                         <TableCell className="font-inter">
-                          {order.purchase_order_items?.length || order.items?.length || 0} items
+                          {order.items_count} items
                         </TableCell>
                         <TableCell className="font-inter font-medium">
-                          ${(order.total_amount || order.totalAmount || 0).toLocaleString()}
+                          ${order.total_amount.toLocaleString()}
                         </TableCell>
                         <TableCell className="font-inter">
-                          {new Date(order.order_date || order.orderDate).toLocaleDateString()}
+                          {new Date(order.order_date).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           <Badge 

@@ -10,6 +10,7 @@ import { ClipboardCheck, Search, CheckCircle, XCircle, Clock, Filter, Eye, User 
 import { useRequisitions } from "@/hooks/useRequisitions";
 import { AdminManagerGuard } from "@/components/auth/RoleGuard";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { normalizeRequisitions } from "@/lib/normalize";
 
 const RequisitionApproval = () => {
   const { requisitions, isLoading, updateRequisition } = useRequisitions();
@@ -47,10 +48,12 @@ const RequisitionApproval = () => {
     }
   };
 
-  const filteredRequisitions = requisitions.filter(req => {
+  const normalizedRequisitions = normalizeRequisitions(requisitions);
+  
+  const filteredRequisitions = normalizedRequisitions.filter(req => {
     const matchesSearch = 
       req.requisition_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.notes?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || req.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -66,8 +69,8 @@ const RequisitionApproval = () => {
     });
   };
 
-  const pendingCount = requisitions.filter(r => r.status === 'pending').length;
-  const approvedCount = requisitions.filter(r => r.status === 'approved').length;
+  const pendingCount = normalizedRequisitions.filter(r => r.status === 'pending').length;
+  const approvedCount = normalizedRequisitions.filter(r => r.status === 'approved').length;
   const totalValue = requisitions.reduce((sum, req) => {
     return sum + (req.requisition_items?.reduce((itemSum, item) => 
       itemSum + ((item.quantity_requested || 0) * (item.unit_cost || 0)), 0) || 0);
@@ -85,7 +88,7 @@ const RequisitionApproval = () => {
                   <div>
                     <p className="text-sm font-inter text-muted-foreground">Total Requisitions</p>
                     <p className="text-2xl font-montserrat font-bold text-foreground">
-                      {requisitions.length}
+                      {normalizedRequisitions.length}
                     </p>
                   </div>
                   <ClipboardCheck className="h-8 w-8 text-primary" />
@@ -199,7 +202,7 @@ const RequisitionApproval = () => {
                       return (
                         <TableRow key={req.id}>
                           <TableCell className="font-medium">{req.requisition_number}</TableCell>
-                          <TableCell>{req.project?.name || 'N/A'}</TableCell>
+                          <TableCell>{req.project_name}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
@@ -211,7 +214,7 @@ const RequisitionApproval = () => {
                               {priorityBadge.label}
                             </Badge>
                           </TableCell>
-                          <TableCell>{req.requisition_items?.length || 0} items</TableCell>
+                          <TableCell>{req.items_count} items</TableCell>
                           <TableCell>
                             {new Date(req.created_at).toLocaleDateString()}
                           </TableCell>
