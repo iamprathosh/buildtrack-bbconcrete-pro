@@ -1,1 +1,5 @@
 project_id = "xyvnqtjxnlongywzhhnd"
+
+[auth.third_party.clerk]
+enabled = true
+domain = "ultimate-crane-63.clerk.accounts.dev"
