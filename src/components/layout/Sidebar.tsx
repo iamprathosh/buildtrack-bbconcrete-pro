@@ -26,7 +26,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Inventory", href: "/inventory", icon: Package },
   { name: "Projects", href: "/projects", icon: Building2 },
-  { name: "Reports", href: "/reports/builder", icon: BarChart3 },
+  { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Procurement", href: "/procurement", icon: ShoppingCart },
   { name: "Equipment", href: "/equipment", icon: Wrench },
   { name: "Users", href: "/users", icon: Users },

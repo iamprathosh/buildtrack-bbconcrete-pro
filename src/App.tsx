@@ -64,6 +64,8 @@ import SystemAuditLog from "./pages/admin/SystemAuditLog";
 import SystemSettings from "./pages/admin/SystemSettings";
 import DataManagement from "./pages/admin/DataManagement";
 import BackupRecovery from "./pages/admin/BackupRecovery";
+import AdvancedSettings from "./pages/admin/AdvancedSettings";
+import AdvancedReports from "./pages/reports/AdvancedReports";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +94,7 @@ const App = () => (
             <Route path="/worker/equipment" element={<WorkerEquipment />} />
             
             {/* Dashboard & Analytics */}
+            <Route path="/reports" element={<AdvancedReports />} />
             <Route path="/reports/builder" element={<ReportBuilder />} />
             <Route path="/reports/saved" element={<SavedReports />} />
             <Route path="/reports/forecasting" element={<ForecastingDashboard />} />
@@ -130,6 +133,7 @@ const App = () => (
             <Route path="/users/roles" element={<RolePermissionManagement />} />
             <Route path="/system/audit" element={<SystemAuditLog />} />
             <Route path="/settings" element={<SystemSettings />} />
+            <Route path="/settings/advanced" element={<AdvancedSettings />} />
             <Route path="/system/data" element={<DataManagement />} />
             <Route path="/system/backup" element={<BackupRecovery />} />
             
