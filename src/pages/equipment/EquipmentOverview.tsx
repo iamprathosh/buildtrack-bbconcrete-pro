@@ -6,13 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wrench, Search, Plus, Filter, User, Calendar, Settings, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Wrench, Search, Plus, Filter, User, Calendar, Settings, CheckCircle, Clock, AlertTriangle, Download } from "lucide-react";
+import { useEquipment } from "@/hooks/useEquipment";
+import { AdminManagerGuard } from "@/components/auth/RoleGuard";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 const EquipmentOverview = () => {
+  const { equipment, isLoading, checkOutEquipment, returnEquipment } = useEquipment();
+  const { profile } = useUserProfile();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const equipment = [
+  const mockEquipmentData = [
     {
       id: "EQ-001",
       name: "Concrete Mixer - Large",
@@ -120,9 +126,21 @@ const EquipmentOverview = () => {
     }
   };
 
-  const statuses = ["all", "available", "checked-out", "maintenance", "retired"];
+  const statuses = ["all", "available", "checked_out", "maintenance", "retired"];
   
-  const filteredEquipment = equipment.filter(item => {
+  // Normalize data structure for consistent display
+  const normalizeEquipment = (items: any[]) => items.map(item => ({
+    ...item,
+    equipment_number: item.equipment_number || item.id,
+    category: item.category || item.type,
+    checked_out_to: item.checked_out_to || item.checkedOutBy,
+    purchase_cost: item.purchase_cost || item.purchasePrice,
+    nextMaintenance: item.nextMaintenance
+  }));
+  
+  const displayEquipment = equipment.length > 0 ? normalizeEquipment(equipment) : normalizeEquipment(mockEquipmentData);
+  
+  const filteredEquipment = displayEquipment.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.type.toLowerCase().includes(searchTerm.toLowerCase());
@@ -130,11 +148,20 @@ const EquipmentOverview = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalEquipment = equipment.length;
-  const availableEquipment = equipment.filter(eq => eq.status === "available").length;
-  const checkedOutEquipment = equipment.filter(eq => eq.status === "checked-out").length;
-  const maintenanceEquipment = equipment.filter(eq => eq.status === "maintenance").length;
-  const totalValue = equipment.reduce((sum, eq) => sum + eq.purchasePrice, 0);
+  const totalEquipment = displayEquipment.length;
+  const availableEquipment = displayEquipment.filter(eq => eq.status === "available").length;
+  const checkedOutEquipment = displayEquipment.filter(eq => eq.status === "checked_out" || eq.status === "checked-out").length;
+  const maintenanceEquipment = displayEquipment.filter(eq => eq.status === "maintenance").length;
+  const totalValue = displayEquipment.reduce((sum, eq) => sum + (eq.purchase_cost || 0), 0);
+
+  const handleCheckOut = async (equipmentId: string) => {
+    if (!profile?.id) return;
+    await checkOutEquipment.mutateAsync({ id: equipmentId, userId: profile.id });
+  };
+
+  const handleReturn = async (equipmentId: string) => {
+    await returnEquipment.mutateAsync(equipmentId);
+  };
 
   return (
     <AppLayout title="Equipment Overview" subtitle="Manage company equipment and assets">
@@ -242,13 +269,15 @@ const EquipmentOverview = () => {
           
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Filter
+              <Download className="h-4 w-4 mr-2" />
+              Export
             </Button>
-            <Button variant="primary" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Equipment
-            </Button>
+            <AdminManagerGuard>
+              <Button variant="primary" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Equipment
+              </Button>
+            </AdminManagerGuard>
           </div>
         </div>
 
@@ -264,58 +293,82 @@ const EquipmentOverview = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-inter font-semibold">Equipment ID</TableHead>
+                  <TableHead className="font-inter font-semibold">Equipment #</TableHead>
                   <TableHead className="font-inter font-semibold">Name</TableHead>
-                  <TableHead className="font-inter font-semibold">Type</TableHead>
-                  <TableHead className="font-inter font-semibold">Condition</TableHead>
+                  <TableHead className="font-inter font-semibold">Category</TableHead>
                   <TableHead className="font-inter font-semibold">Status</TableHead>
                   <TableHead className="font-inter font-semibold">Location</TableHead>
-                  <TableHead className="font-inter font-semibold">Checked Out By</TableHead>
-                  <TableHead className="font-inter font-semibold">Next Maintenance</TableHead>
+                  <TableHead className="font-inter font-semibold">Checked Out To</TableHead>
+                  <TableHead className="font-inter font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEquipment.map((item) => {
-                  const statusBadge = getStatusBadge(item.status);
-                  const conditionBadge = getConditionBadge(item.condition);
-                  const StatusIcon = statusBadge.icon;
-                  
-                  return (
-                    <TableRow key={item.id} className="hover:bg-secondary/50">
-                      <TableCell className="font-inter font-medium">{item.id}</TableCell>
-                      <TableCell className="font-inter">{item.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-inter">
-                          {item.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={conditionBadge.variant as any}
-                          className="text-xs"
-                        >
-                          {conditionBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={statusBadge.variant as any}
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {statusBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-inter">{item.location}</TableCell>
-                      <TableCell className="font-inter">
-                        {item.checkedOutBy || "-"}
-                      </TableCell>
-                      <TableCell className="font-inter">
-                        {new Date(item.nextMaintenance).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      Loading equipment...
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredEquipment.map((item) => {
+                    const statusBadge = getStatusBadge(item.status);
+                    const StatusIcon = statusBadge.icon;
+                    
+                    return (
+                      <TableRow key={item.id} className="hover:bg-secondary/50">
+                        <TableCell className="font-inter font-medium">
+                          {item.equipment_number}
+                        </TableCell>
+                        <TableCell className="font-inter">{item.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-inter">
+                            {item.category || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant as any}
+                            className="flex items-center gap-1 w-fit"
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {statusBadge.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-inter">{item.location || 'N/A'}</TableCell>
+                        <TableCell className="font-inter">
+                          {item.checked_out_to || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {item.status === 'available' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCheckOut(item.id)}
+                                disabled={!profile}
+                              >
+                                Check Out
+                              </Button>
+                            ) : (item.status === 'checked_out' || item.status === 'checked-out') && item.checked_out_to === profile?.id ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleReturn(item.id)}
+                              >
+                                Return
+                              </Button>
+                            ) : null}
+                            <AdminManagerGuard>
+                              <Button variant="ghost" size="sm">
+                                Edit
+                              </Button>
+                            </AdminManagerGuard>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -331,9 +384,10 @@ const EquipmentOverview = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {equipment
-                .filter(eq => new Date(eq.nextMaintenance) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
-                .sort((a, b) => new Date(a.nextMaintenance).getTime() - new Date(b.nextMaintenance).getTime())
+              {displayEquipment
+                .filter(eq => eq.nextMaintenance && new Date(eq.nextMaintenance) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
+                .sort((a, b) => new Date(a.nextMaintenance!).getTime() - new Date(b.nextMaintenance!).getTime())
+                .slice(0, 5)
                 .map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                     <div className="flex items-center space-x-3">
@@ -341,20 +395,25 @@ const EquipmentOverview = () => {
                       <div>
                         <p className="text-sm font-inter font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground font-inter">
-                          {item.id} • {item.type}
+                          {item.equipment_number} • {item.category}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-inter font-medium">
-                        {new Date(item.nextMaintenance).toLocaleDateString()}
+                        {new Date(item.nextMaintenance!).toLocaleDateString()}
                       </p>
                       <p className="text-xs text-muted-foreground font-inter">
-                        {Math.ceil((new Date(item.nextMaintenance).getTime() - Date.now()) / (24 * 60 * 60 * 1000))} days
+                        {Math.ceil((new Date(item.nextMaintenance!).getTime() - Date.now()) / (24 * 60 * 60 * 1000))} days
                       </p>
                     </div>
                   </div>
                 ))}
+              {displayEquipment.filter(eq => eq.nextMaintenance && new Date(eq.nextMaintenance) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  No upcoming maintenance scheduled
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

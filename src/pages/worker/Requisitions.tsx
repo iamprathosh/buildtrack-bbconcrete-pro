@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, FileText, Clock, CheckCircle, X, Search } from "lucide-react";
-import BBLogo from "@/assets/bb-logo.jpg";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useRequisitions } from "@/hooks/useRequisitions";
 
 const WorkerRequisitions = () => {
+  const { myRequisitions, isLoadingMy } = useRequisitions();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const requisitions = [
+  const mockRequisitions = [
     {
       id: "REQ-001",
       items: [
@@ -61,9 +62,14 @@ const WorkerRequisitions = () => {
     }
   };
 
-  const filteredRequisitions = requisitions.filter(req =>
-    req.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    req.items.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Use real data if available, otherwise fall back to mock data
+  const displayRequisitions = myRequisitions.length > 0 ? myRequisitions : mockRequisitions;
+  
+  const filteredRequisitions = displayRequisitions.filter(req =>
+    (req.requisition_number || req.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (req.requisition_items || req.items)?.some((item: any) => 
+      (item.product?.name || item.name)?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   return (
@@ -88,100 +94,104 @@ const WorkerRequisitions = () => {
 
         {/* Requisitions List */}
         <div className="space-y-4">
-          {filteredRequisitions.map((requisition) => {
-            const statusBadge = getStatusBadge(requisition.status);
-            const StatusIcon = statusBadge.icon;
-            
-            return (
-              <Card key={requisition.id} className="gradient-card border-0 shadow-brand">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 font-montserrat">
-                        <FileText className="h-5 w-5 text-primary" />
-                        {requisition.id}
-                      </CardTitle>
-                      <CardDescription className="font-inter">
-                        Requested on {new Date(requisition.requestDate).toLocaleDateString()}
-                      </CardDescription>
+          {isLoadingMy ? (
+            <Card className="gradient-card border-0 shadow-brand">
+              <CardContent className="text-center py-12">
+                Loading your requisitions...
+              </CardContent>
+            </Card>
+          ) : (
+            filteredRequisitions.map((requisition) => {
+              const statusBadge = getStatusBadge(requisition.status);
+              const StatusIcon = statusBadge.icon;
+              
+              return (
+                <Card key={requisition.id} className="gradient-card border-0 shadow-brand">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 font-montserrat">
+                          <FileText className="h-5 w-5 text-primary" />
+                          {requisition.requisition_number || requisition.id}
+                        </CardTitle>
+                        <CardDescription className="font-inter">
+                          Requested on {new Date(requisition.created_at || requisition.requestDate).toLocaleDateString()}
+                        </CardDescription>
+                      </div>
+                      <Badge 
+                        variant={statusBadge.variant as any}
+                        className="flex items-center gap-1"
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        {statusBadge.label}
+                      </Badge>
                     </div>
-                    <Badge 
-                      variant={statusBadge.variant as any}
-                      className="flex items-center gap-1"
-                    >
-                      <StatusIcon className="h-3 w-3" />
-                      {statusBadge.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {/* Items */}
-                  <div>
-                    <h4 className="font-inter font-semibold text-sm text-foreground mb-2">
-                      Requested Items:
-                    </h4>
-                    <div className="space-y-1">
-                      {requisition.items.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
-                          <span className="font-inter text-sm">{item.name}</span>
-                          <span className="font-inter text-sm font-medium">
-                            {item.quantity} {item.unit}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  {requisition.notes && (
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    {/* Items */}
                     <div>
-                      <h4 className="font-inter font-semibold text-sm text-foreground mb-1">
-                        Notes:
+                      <h4 className="font-inter font-semibold text-sm text-foreground mb-2">
+                        Requested Items:
                       </h4>
-                      <p className="font-inter text-sm text-muted-foreground">
-                        {requisition.notes}
-                      </p>
+                      <div className="space-y-1">
+                        {(requisition.requisition_items || requisition.items || []).map((item: any, index: number) => (
+                          <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
+                            <span className="font-inter text-sm">
+                              {item.product?.name || item.name}
+                            </span>
+                            <span className="font-inter text-sm font-medium">
+                              {item.quantity_requested || item.quantity} {item.product?.unit_of_measure || item.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  )}
 
-                  {/* Status Details */}
-                  <div className="pt-2 border-t border-border/50">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-inter text-muted-foreground">Approver:</span>
-                      <span className="font-inter font-medium">{requisition.approver}</span>
-                    </div>
-                    
-                    {requisition.status === "approved" && requisition.approvedDate && (
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-inter text-muted-foreground">Approved:</span>
-                        <span className="font-inter font-medium">
-                          {new Date(requisition.approvedDate).toLocaleDateString()}
-                        </span>
+                    {/* Notes */}
+                    {requisition.notes && (
+                      <div>
+                        <h4 className="font-inter font-semibold text-sm text-foreground mb-1">
+                          Notes:
+                        </h4>
+                        <p className="font-inter text-sm text-muted-foreground">
+                          {requisition.notes}
+                        </p>
                       </div>
                     )}
-                    
-                    {requisition.status === "rejected" && (
-                      <>
+
+                    {/* Status Details */}
+                    <div className="pt-2 border-t border-border/50">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-inter text-muted-foreground">Project:</span>
+                        <span className="font-inter font-medium">
+                          {requisition.project?.name || 'N/A'}
+                        </span>
+                      </div>
+                      
+                      {requisition.status === "approved" && requisition.approved_date && (
                         <div className="flex justify-between items-center text-sm">
-                          <span className="font-inter text-muted-foreground">Rejected:</span>
+                          <span className="font-inter text-muted-foreground">Approved:</span>
                           <span className="font-inter font-medium">
-                            {new Date(requisition.rejectedDate!).toLocaleDateString()}
+                            {new Date(requisition.approved_date).toLocaleDateString()}
                           </span>
                         </div>
+                      )}
+                      
+                      {requisition.status === "rejected" && (
                         <div className="mt-2">
-                          <span className="font-inter text-sm text-muted-foreground">Reason: </span>
+                          <span className="font-inter text-sm text-muted-foreground">Status: </span>
                           <span className="font-inter text-sm text-destructive">
-                            {requisition.rejectionReason}
+                            Rejected
                           </span>
                         </div>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
 
         {filteredRequisitions.length === 0 && (

@@ -7,12 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Search, Plus, Download, Eye, Edit, Clock, CheckCircle, AlertTriangle, Truck } from "lucide-react";
+import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
+import { AdminManagerGuard } from "@/components/auth/RoleGuard";
 
 const PurchaseOrderManagement = () => {
+  const { purchaseOrders, isLoading } = usePurchaseOrders();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const purchaseOrders = [
+  const mockPurchaseOrders = [
     {
       id: "PO-001",
       vendor: "ABC Concrete Co.",
@@ -88,9 +91,12 @@ const PurchaseOrderManagement = () => {
     }
   };
 
-  const statuses = ["all", "pending", "approved", "delivered", "rejected"];
+  const statuses = ["all", "draft", "sent", "acknowledged", "received", "closed", "cancelled"];
   
-  const filteredOrders = purchaseOrders.filter(order => {
+  // Use real data if available, otherwise fall back to mock data
+  const displayOrders = purchaseOrders.length > 0 ? purchaseOrders : mockPurchaseOrders;
+  
+  const filteredOrders = displayOrders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.project.toLowerCase().includes(searchTerm.toLowerCase());
@@ -98,10 +104,10 @@ const PurchaseOrderManagement = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalPOs = purchaseOrders.length;
-  const pendingPOs = purchaseOrders.filter(po => po.status === "pending").length;
-  const totalValue = purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0);
-  const deliveredPOs = purchaseOrders.filter(po => po.status === "delivered").length;
+  const totalPOs = displayOrders.length;
+  const pendingPOs = displayOrders.filter(po => po.status === "pending" || po.status === "draft").length;
+  const totalValue = displayOrders.reduce((sum, po) => sum + (po.total_amount || po.totalAmount || 0), 0);
+  const deliveredPOs = displayOrders.filter(po => po.status === "delivered" || po.status === "received").length;
 
   return (
     <AppLayout title="Purchase Order Management" subtitle="Create, track, and manage purchase orders">
@@ -198,10 +204,12 @@ const PurchaseOrderManagement = () => {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button variant="primary" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              New PO
-            </Button>
+            <AdminManagerGuard>
+              <Button variant="primary" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New PO
+              </Button>
+            </AdminManagerGuard>
           </div>
         </div>
 
@@ -228,48 +236,64 @@ const PurchaseOrderManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => {
-                  const statusBadge = getStatusBadge(order.status);
-                  const StatusIcon = statusBadge.icon;
-                  
-                  return (
-                    <TableRow key={order.id} className="hover:bg-secondary/50">
-                      <TableCell className="font-inter font-medium">{order.id}</TableCell>
-                      <TableCell className="font-inter">{order.vendor}</TableCell>
-                      <TableCell className="font-inter">{order.project}</TableCell>
-                      <TableCell className="font-inter">
-                        {order.items.length} item{order.items.length > 1 ? 's' : ''}
-                      </TableCell>
-                      <TableCell className="font-inter font-medium">
-                        ${order.totalAmount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-inter">
-                        {new Date(order.orderDate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={statusBadge.variant as any}
-                          className="flex items-center gap-1 w-fit"
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {statusBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {order.status === "pending" && (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Loading purchase orders...
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOrders.map((order) => {
+                    const statusBadge = getStatusBadge(order.status);
+                    const StatusIcon = statusBadge.icon;
+                    
+                    return (
+                      <TableRow key={order.id} className="hover:bg-secondary/50">
+                        <TableCell className="font-inter font-medium">
+                          {order.po_number || order.id}
+                        </TableCell>
+                        <TableCell className="font-inter">
+                          {order.vendor?.name || order.vendor}
+                        </TableCell>
+                        <TableCell className="font-inter">
+                          {order.project?.name || order.project}
+                        </TableCell>
+                        <TableCell className="font-inter">
+                          {order.purchase_order_items?.length || order.items?.length || 0} items
+                        </TableCell>
+                        <TableCell className="font-inter font-medium">
+                          ${(order.total_amount || order.totalAmount || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-inter">
+                          {new Date(order.order_date || order.orderDate).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={statusBadge.variant as any}
+                            className="flex items-center gap-1 w-fit"
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {statusBadge.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
                             <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                            <AdminManagerGuard>
+                              {(order.status === "pending" || order.status === "draft") && (
+                                <Button variant="ghost" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </AdminManagerGuard>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </CardContent>
