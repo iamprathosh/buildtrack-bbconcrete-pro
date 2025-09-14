@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { AddProductDialog } from "@/components/inventory/AddProductDialog";
@@ -23,6 +25,8 @@ const InventoryOverview = () => {
     locations: [] as string[],
     stockRange: { min: "", max: "" }
   });
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const { products, isLoading } = useProducts();
 
@@ -81,6 +85,11 @@ const InventoryOverview = () => {
         ? [...prev[type as keyof typeof prev] as string[], value]
         : (prev[type as keyof typeof prev] as string[]).filter(item => item !== value)
     }));
+  };
+
+  const handleProductClick = (product: any) => {
+    setSelectedProduct(product);
+    setIsDetailOpen(true);
   };
 
   const handleStockRangeChange = (field: 'min' | 'max', value: string) => {
@@ -395,7 +404,11 @@ const InventoryOverview = () => {
                     const totalValue = item.current_stock * (item.mauc || 0);
                     
                     return (
-                      <TableRow key={item.id} className="hover:bg-secondary/50">
+                      <TableRow 
+                        key={item.id} 
+                        className="hover:bg-secondary/50 cursor-pointer"
+                        onClick={() => handleProductClick(item)}
+                      >
                         <TableCell className="font-inter font-medium">{item.sku}</TableCell>
                         <TableCell className="font-inter">{item.name}</TableCell>
                         <TableCell>
@@ -428,6 +441,147 @@ const InventoryOverview = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Product Detail Modal */}
+        <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-montserrat text-xl">
+                Product Details
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedProduct && (
+              <div className="space-y-6">
+                {/* Product Image and Basic Info */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center border">
+                      {selectedProduct.image_url ? (
+                        <img
+                          src={selectedProduct.image_url}
+                          alt={selectedProduct.name}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="text-center text-muted-foreground">
+                          <Package className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm font-inter">No Image</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <h3 className="text-2xl font-montserrat font-bold">{selectedProduct.name}</h3>
+                      <p className="text-muted-foreground font-inter">SKU: {selectedProduct.sku}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-inter font-medium text-muted-foreground">Category</Label>
+                        <p className="font-inter">
+                          {selectedProduct.product_categories?.name || 'Uncategorized'}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-inter font-medium text-muted-foreground">Location</Label>
+                        <p className="font-inter">
+                          {selectedProduct.location || selectedProduct.inventory_locations?.name || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-inter font-medium text-muted-foreground">Supplier</Label>
+                        <p className="font-inter">{selectedProduct.supplier || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-inter font-medium text-muted-foreground">Unit of Measure</Label>
+                        <p className="font-inter">{selectedProduct.unit_of_measure}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Stock Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-montserrat font-semibold">Stock Information</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-montserrat font-bold text-primary">
+                        {selectedProduct.current_stock}
+                      </p>
+                      <p className="text-sm font-inter text-muted-foreground">Current Stock</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-montserrat font-bold text-warning">
+                        {selectedProduct.min_stock_level}
+                      </p>
+                      <p className="text-sm font-inter text-muted-foreground">Min Level</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-montserrat font-bold text-info">
+                        {selectedProduct.max_stock_level}
+                      </p>
+                      <p className="text-sm font-inter text-muted-foreground">Max Level</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-montserrat font-bold text-foreground">
+                        ${(selectedProduct.current_stock * (selectedProduct.mauc || 0)).toLocaleString()}
+                      </p>
+                      <p className="text-sm font-inter text-muted-foreground">Total Value</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-inter font-medium text-muted-foreground">Status:</Label>
+                    <Badge 
+                      variant={getStatusBadge(selectedProduct.current_stock, selectedProduct.min_stock_level).variant as any}
+                      className="flex items-center gap-1"
+                    >
+                      {React.createElement(getStatusBadge(selectedProduct.current_stock, selectedProduct.min_stock_level).icon, { className: "h-3 w-3" })}
+                      {getStatusBadge(selectedProduct.current_stock, selectedProduct.min_stock_level).label}
+                    </Badge>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Financial Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-montserrat font-semibold">Financial Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-inter font-medium text-muted-foreground">Unit Cost (MAUC)</Label>
+                      <p className="text-xl font-montserrat font-bold">
+                        ${selectedProduct.mauc?.toFixed(2) || '0.00'}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-inter font-medium text-muted-foreground">Total Inventory Value</Label>
+                      <p className="text-xl font-montserrat font-bold">
+                        ${(selectedProduct.current_stock * (selectedProduct.mauc || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {selectedProduct.description && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-montserrat font-semibold">Description</h4>
+                      <p className="font-inter text-muted-foreground">{selectedProduct.description}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
