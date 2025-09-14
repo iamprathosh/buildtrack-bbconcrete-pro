@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { AddProductDialog } from "@/components/inventory/AddProductDialog";
@@ -15,6 +18,11 @@ import { toast } from "@/hooks/use-toast";
 const InventoryOverview = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [filters, setFilters] = useState({
+    stockStatus: [] as string[],
+    locations: [] as string[],
+    stockRange: { min: "", max: "" }
+  });
 
   const { products, isLoading } = useProducts();
 
@@ -33,13 +41,62 @@ const InventoryOverview = () => {
   // Get unique categories from products
   const categories = ["all", ...(products ? Array.from(new Set(products.map(p => (p as any).product_categories?.name).filter(Boolean))) : [])];
   
-  const filteredItems = products?.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const categoryName = (item as any).product_categories?.name;
-    const matchesCategory = selectedCategory === "all" || categoryName === selectedCategory;
-    return matchesSearch && matchesCategory;
-  }) || [];
+  // Get unique locations from products
+  const locations = products ? Array.from(new Set(products.map(p => p.location || (p as any).inventory_locations?.name).filter(Boolean))) : [];
+  
+  const applyFilters = (items: typeof products) => {
+    if (!items) return [];
+    
+    return items.filter(item => {
+      // Search filter
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Category filter
+      const categoryName = (item as any).product_categories?.name;
+      const matchesCategory = selectedCategory === "all" || categoryName === selectedCategory;
+      
+      // Stock status filter
+      const statusBadge = getStatusBadge(item.current_stock, item.min_stock_level);
+      const matchesStockStatus = filters.stockStatus.length === 0 || filters.stockStatus.includes(statusBadge.label);
+      
+      // Location filter
+      const itemLocation = item.location || (item as any).inventory_locations?.name;
+      const matchesLocation = filters.locations.length === 0 || filters.locations.includes(itemLocation);
+      
+      // Stock range filter
+      const matchesStockRange = (!filters.stockRange.min || item.current_stock >= parseInt(filters.stockRange.min)) &&
+                               (!filters.stockRange.max || item.current_stock <= parseInt(filters.stockRange.max));
+      
+      return matchesSearch && matchesCategory && matchesStockStatus && matchesLocation && matchesStockRange;
+    });
+  };
+  
+  const filteredItems = applyFilters(products);
+
+  const handleFilterChange = (type: string, value: string, checked: boolean) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: checked 
+        ? [...prev[type as keyof typeof prev] as string[], value]
+        : (prev[type as keyof typeof prev] as string[]).filter(item => item !== value)
+    }));
+  };
+
+  const handleStockRangeChange = (field: 'min' | 'max', value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      stockRange: { ...prev.stockRange, [field]: value }
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      stockStatus: [],
+      locations: [],
+      stockRange: { min: "", max: "" }
+    });
+  };
 
   const totalValue = products?.reduce((sum, item) => sum + (item.current_stock * (item.mauc || 0)), 0) || 0;
   const lowStockItems = products?.filter(item => item.current_stock <= item.min_stock_level).length || 0;
@@ -199,10 +256,98 @@ const InventoryOverview = () => {
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Filter className="h-4 w-4 mr-2" />
-              Filter
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                  {(filters.stockStatus.length > 0 || filters.locations.length > 0 || filters.stockRange.min || filters.stockRange.max) && (
+                    <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                      {filters.stockStatus.length + filters.locations.length + (filters.stockRange.min ? 1 : 0) + (filters.stockRange.max ? 1 : 0)}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 bg-background border border-border shadow-lg z-50" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium font-montserrat">Filters</h4>
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      Clear All
+                    </Button>
+                  </div>
+                  
+                  {/* Stock Status Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-inter font-medium">Stock Status</Label>
+                    <div className="space-y-2">
+                      {["Critical", "Low Stock", "Adequate", "High Stock"].map((status) => (
+                        <div key={status} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`status-${status}`}
+                            checked={filters.stockStatus.includes(status)}
+                            onCheckedChange={(checked) => 
+                              handleFilterChange("stockStatus", status, checked as boolean)
+                            }
+                          />
+                          <Label htmlFor={`status-${status}`} className="text-sm font-inter">
+                            {status}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Location Filter */}
+                  {locations.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-inter font-medium">Location</Label>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {locations.map((location) => (
+                          <div key={location} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`location-${location}`}
+                              checked={filters.locations.includes(location)}
+                              onCheckedChange={(checked) => 
+                                handleFilterChange("locations", location, checked as boolean)
+                              }
+                            />
+                            <Label htmlFor={`location-${location}`} className="text-sm font-inter">
+                              {location}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stock Range Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-inter font-medium">Stock Quantity Range</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Min"
+                          type="number"
+                          value={filters.stockRange.min}
+                          onChange={(e) => handleStockRangeChange("min", e.target.value)}
+                          className="text-sm font-inter"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Max"
+                          type="number"
+                          value={filters.stockRange.max}
+                          onChange={(e) => handleStockRangeChange("max", e.target.value)}
+                          className="text-sm font-inter"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export
