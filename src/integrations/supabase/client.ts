@@ -8,6 +8,7 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Default client for non-authenticated operations
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
@@ -16,5 +17,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// For Clerk integration, use the useSupabaseClient hook instead
-// import { useSupabaseClient } from "@/hooks/useSupabaseClient";
+// Export the constants for use in the Clerk-integrated client
+export { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY };
