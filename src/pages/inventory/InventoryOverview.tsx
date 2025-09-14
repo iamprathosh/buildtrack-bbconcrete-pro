@@ -108,7 +108,7 @@ const InventoryOverview = () => {
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex gap-4 flex-1">
+          <div className="flex gap-4 flex-1 items-center">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -123,9 +123,9 @@ const InventoryOverview = () => {
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border border-border shadow-lg z-50">
                 {categories.map((category) => (
-                  <SelectItem key={category} value={category} className="capitalize">
+                  <SelectItem key={category} value={category} className="capitalize bg-background hover:bg-accent">
                     {category}
                   </SelectItem>
                 ))}
