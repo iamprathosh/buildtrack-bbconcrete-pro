@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { AddProductDialog } from "@/components/inventory/AddProductDialog";
+import { toast } from "@/hooks/use-toast";
 
 const InventoryOverview = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,6 +44,70 @@ const InventoryOverview = () => {
   const totalValue = products?.reduce((sum, item) => sum + (item.current_stock * (item.mauc || 0)), 0) || 0;
   const lowStockItems = products?.filter(item => item.current_stock <= item.min_stock_level).length || 0;
   const criticalItems = products?.filter(item => item.current_stock <= item.min_stock_level * 0.5).length || 0;
+
+  const exportToCSV = () => {
+    if (!filteredItems.length) {
+      toast({
+        title: "No data to export",
+        description: "There are no inventory items to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const csvHeaders = [
+      "SKU",
+      "Item Name", 
+      "Category",
+      "Quantity",
+      "Unit of Measure",
+      "Location",
+      "Unit Cost",
+      "Total Value",
+      "Min Stock Level",
+      "Max Stock Level",
+      "Status"
+    ];
+
+    const csvData = filteredItems.map(item => {
+      const statusBadge = getStatusBadge(item.current_stock, item.min_stock_level);
+      const totalValue = item.current_stock * (item.mauc || 0);
+      
+      return [
+        item.sku,
+        item.name,
+        (item as any).product_categories?.name || 'Uncategorized',
+        item.current_stock,
+        item.unit_of_measure,
+        item.location || (item as any).inventory_locations?.name || 'N/A',
+        item.mauc?.toFixed(2) || '0.00',
+        totalValue.toFixed(2),
+        item.min_stock_level,
+        item.max_stock_level,
+        statusBadge.label
+      ];
+    });
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export successful",
+      description: `Exported ${filteredItems.length} inventory items to CSV.`
+    });
+  };
 
   return (
     <AppLayout title="Inventory Overview" subtitle="Manage your construction materials and supplies">
@@ -138,7 +203,7 @@ const InventoryOverview = () => {
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
