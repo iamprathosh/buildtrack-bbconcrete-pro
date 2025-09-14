@@ -1,0 +1,3 @@
+-- Note: The leaked password protection is an Auth setting that cannot be enabled via SQL
+-- This needs to be enabled in the Supabase Dashboard under Authentication > Settings
+-- The warning is about preventing users from using compromised passwords from data breaches
