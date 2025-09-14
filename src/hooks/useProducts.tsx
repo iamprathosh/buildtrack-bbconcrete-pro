@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSupabaseClient } from '@/hooks/useSupabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface Product {
@@ -41,7 +41,6 @@ export interface ProductInsert {
 
 export function useProducts() {
   const queryClient = useQueryClient();
-  const supabase = useSupabaseClient();
 
   // Fetch all products
   const {
@@ -134,7 +133,6 @@ export function useProducts() {
 
 // Hook for product categories
 export function useProductCategories() {
-  const supabase = useSupabaseClient();
   return useQuery({
     queryKey: ['product_categories'],
     queryFn: async () => {
@@ -151,7 +149,6 @@ export function useProductCategories() {
 
 // Hook for inventory locations
 export function useInventoryLocations() {
-  const supabase = useSupabaseClient();
   return useQuery({
     queryKey: ['inventory_locations'],
     queryFn: async () => {
