@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { subDays, format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
 export type DateRange = '7d' | '30d' | '90d' | 'week' | 'month' | 'custom';
@@ -29,6 +29,8 @@ interface ChartData {
 }
 
 export function useAdvancedAnalytics(filters: AnalyticsFilters) {
+  const { supabase } = useSupabaseClient();
+  
   const getDateRange = () => {
     const now = new Date();
     switch (filters.dateRange) {

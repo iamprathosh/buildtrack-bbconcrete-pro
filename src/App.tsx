@@ -4,8 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ClerkAuthGuard } from "./components/auth/ClerkAuth";
+import { AuthProvider } from "./contexts/AuthContext";
+import { SupabaseProvider } from "./providers/SupabaseProvider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import DebugPage from "./pages/DebugPage";
 
 // Authentication & User Profile
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -22,6 +25,7 @@ import WorkerInventory from "./pages/worker/Inventory";
 import BarcodeScanning from "./pages/worker/BarcodeScanning";
 import WorkerRequisitions from "./pages/worker/Requisitions";
 import WorkerEquipment from "./pages/worker/Equipment";
+import WorkerOperations from "./pages/worker/WorkerOperations";
 
 // Dashboard & Analytics
 import ReportBuilder from "./pages/reports/ReportBuilder";
@@ -75,10 +79,13 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <ClerkAuthGuard>
-          <Routes>
+        <AuthProvider>
+          <ClerkAuthGuard>
+            <SupabaseProvider>
+              <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Index />} />
+            <Route path="/debug" element={<DebugPage />} />
             
             {/* Authentication & User Profile */}
             <Route path="/profile" element={<Profile />} />
@@ -92,6 +99,7 @@ const App = () => (
             <Route path="/worker/scan" element={<BarcodeScanning />} />
             <Route path="/worker/requisitions" element={<WorkerRequisitions />} />
             <Route path="/worker/equipment" element={<WorkerEquipment />} />
+            <Route path="/worker/operations" element={<WorkerOperations />} />
             
             {/* Dashboard & Analytics */}
             <Route path="/reports" element={<AdvancedReports />} />
@@ -139,8 +147,10 @@ const App = () => (
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </ClerkAuthGuard>
+              </Routes>
+            </SupabaseProvider>
+          </ClerkAuthGuard>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 
@@ -9,6 +9,7 @@ type PurchaseOrderUpdate = Database['public']['Tables']['purchase_orders']['Upda
 type PurchaseOrderItem = Database['public']['Tables']['purchase_order_items']['Row'];
 
 export function usePurchaseOrders() {
+  const { supabase } = useSupabaseClient();
   const queryClient = useQueryClient();
 
   // Fetch all purchase orders with vendor details

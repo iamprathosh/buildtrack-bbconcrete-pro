@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import VoiceAgentWidget from "@/components/VoiceAgentWidget";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,9 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      
+      {/* Voice Agent Widget - Only visible to admins */}
+      <VoiceAgentWidget />
     </div>
   );
 }

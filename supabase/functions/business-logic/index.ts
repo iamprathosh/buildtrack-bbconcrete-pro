@@ -108,20 +108,42 @@ serve(async (req) => {
       }
 
       case 'stock_level_alerts': {
-        // Get products with low stock levels
-        const { data: lowStockProducts, error } = await supabaseClient
-          .from('products')
-          .select('*')
-          .lt('current_stock', 'min_stock_level')
-          .eq('is_active', true);
+        // Get products with low stock levels - using a custom SQL query since PostgREST doesn't support column comparisons directly
+        const { data: lowStockProducts, error } = await supabaseClient.rpc(
+          'get_low_stock_products'
+        );
 
+        // If the RPC function doesn't exist, fallback to a basic query
+        if (error && error.message.includes('function get_low_stock_products')) {
+          // Fallback: get all products and filter on the client side
+          const { data: allProducts, error: productsError } = await supabaseClient
+            .from('products')
+            .select('*')
+            .eq('is_active', true);
+            
+          if (productsError) throw productsError;
+          
+          const filteredProducts = allProducts?.filter(
+            product => product.current_stock < product.min_stock_level
+          ) || [];
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              low_stock_products: filteredProducts,
+              alert_count: filteredProducts.length
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
         if (error) throw error;
 
         return new Response(
           JSON.stringify({ 
             success: true, 
-            low_stock_products: lowStockProducts,
-            alert_count: lowStockProducts.length
+            low_stock_products: lowStockProducts || [],
+            alert_count: (lowStockProducts || []).length
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

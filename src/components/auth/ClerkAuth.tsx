@@ -1,9 +1,12 @@
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2 } from "lucide-react";
+import { RoleValidationModal } from "./RoleValidationModal";
+import { useState } from "react";
+import { UserRole } from "@/config/registrationPasswords";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export function ClerkAuthGuard({ children }: { children: React.ReactNode }) {
   return (
@@ -21,9 +24,9 @@ export function ClerkAuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 function ProfileSyncWrapper({ children }: { children: React.ReactNode }) {
-  const { loading, error } = useUserProfile();
+  const { user, isLoaded, isLoading } = useAuthContext();
 
-  if (loading) {
+  if (!isLoaded || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="space-y-4 text-center">
@@ -34,14 +37,14 @@ function ProfileSyncWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (error) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl text-destructive">Profile Sync Error</CardTitle>
+            <CardTitle className="text-xl text-destructive">Authentication Error</CardTitle>
             <CardDescription>
-              Failed to sync your profile. Please try signing out and back in.
+              Please sign in to continue.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -53,6 +56,21 @@ function ProfileSyncWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AuthenticationScreen() {
+  const [showRoleModal, setShowRoleModal] = useState(false);
+
+  const handleRoleValidated = (role: UserRole) => {
+    // Role is stored in localStorage and will be picked up by useUserProfile
+    // Now trigger Clerk's built-in registration
+    setShowRoleModal(false);
+    // Trigger the hidden Clerk signup button
+    setTimeout(() => {
+      const signupButton = document.getElementById('clerk-signup-trigger');
+      if (signupButton) {
+        signupButton.click();
+      }
+    }, 100);
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -85,13 +103,28 @@ function AuthenticationScreen() {
             </div>
           </div>
 
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            size="lg"
+            onClick={() => setShowRoleModal(true)}
+          >
+            Create Account
+          </Button>
+          
           <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-            <Button variant="outline" className="w-full" size="lg">
-              Create Account
+            <Button className="hidden" id="clerk-signup-trigger">
+              Hidden Signup
             </Button>
           </SignUpButton>
         </CardContent>
       </Card>
+      
+      <RoleValidationModal 
+        isOpen={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        onValidated={handleRoleValidated}
+      />
     </div>
   );
 }

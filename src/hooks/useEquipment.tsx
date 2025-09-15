@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 
@@ -8,6 +8,7 @@ type EquipmentInsert = Database['public']['Tables']['equipment']['Insert'];
 type EquipmentUpdate = Database['public']['Tables']['equipment']['Update'];
 
 export function useEquipment() {
+  const { supabase } = useSupabaseClient();
   const queryClient = useQueryClient();
 
   // Fetch all equipment

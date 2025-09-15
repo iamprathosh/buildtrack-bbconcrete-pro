@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { toast } from '@/hooks/use-toast';
 
 export interface Project {
@@ -27,6 +27,7 @@ export interface Project {
 }
 
 export function useProjects() {
+  const { supabase } = useSupabaseClient();
   const queryClient = useQueryClient();
 
   // Fetch all projects
@@ -278,6 +279,8 @@ export function useProjects() {
 
 // Hook for customers (for project creation)
 export function useCustomers() {
+  const { supabase } = useSupabaseClient();
+  
   return useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
@@ -298,6 +301,8 @@ export function useCustomers() {
 
 // Hook for users (for project manager assignment)
 export function useUsers() {
+  const { supabase } = useSupabaseClient();
+  
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {

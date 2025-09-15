@@ -8,22 +8,41 @@ import { Badge } from '@/components/ui/badge';
 import { AdvancedChart } from '@/components/analytics/AdvancedChart';
 import { useAdvancedAnalytics, DateRange } from '@/hooks/useAdvancedAnalytics';
 import { MobileOptimized, MobileGrid } from '@/components/mobile/MobileOptimized';
-import { BarChart3, TrendingUp, DollarSign, Package, Calendar, Download, Filter } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, Package, Calendar, Download, Filter, AlertCircle, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AdvancedReports = () => {
   const [dateRange, setDateRange] = useState<DateRange>('30d');
-  const [selectedProject, setSelectedProject] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>('all');
   
   const { 
     kpiData, 
     projectChart, 
     inventoryChart, 
     financialChart, 
-    isLoading 
+    isLoading,
+    kpiLoading,
+    projectChartLoading,
+    inventoryChartLoading,
+    financialChartLoading
   } = useAdvancedAnalytics({
     dateRange,
-    projectId: selectedProject || undefined
+    projectId: selectedProject === 'all' ? undefined : selectedProject
   });
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <AppLayout title="Advanced Reports" subtitle="Comprehensive analytics and insights">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading analytics data...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const formatValue = (value: number, format: 'number' | 'currency' | 'percentage') => {
     switch (format) {
@@ -90,7 +109,7 @@ const AdvancedReports = () => {
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Projects</SelectItem>
+                  <SelectItem value="all">All Projects</SelectItem>
                   <SelectItem value="project-1">Downtown Office Complex</SelectItem>
                   <SelectItem value="project-2">Highway Bridge Repair</SelectItem>
                   <SelectItem value="project-3">Residential Complex</SelectItem>

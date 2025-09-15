@@ -13,17 +13,45 @@ import {
   Wrench,
   Home,
   Bell,
+  PackageOpen,
+  Cog
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useAuthContext } from "@/contexts/AuthContext";
 import BBLogo from "@/assets/bb-logo.jpg";
 
 interface SidebarProps {
   className?: string;
 }
 
-const navigation = [
+// Base navigation available to all users
+const baseNavigation = [
   { name: "Dashboard", href: "/", icon: Home },
+];
+
+// Worker-specific navigation
+const workerNavigation = [
+  { name: "Operations", href: "/worker/operations", icon: PackageOpen },
+  { name: "Inventory", href: "/worker/inventory", icon: Package },
+  { name: "Equipment", href: "/worker/equipment", icon: Wrench },
+  { name: "Projects", href: "/worker/projects", icon: Building2 },
+];
+
+// Manager/Admin navigation
+const managerNavigation = [
+  { name: "Operations", href: "/worker/operations", icon: PackageOpen },
+  { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Projects", href: "/projects", icon: Building2 },
+  { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+  { name: "Equipment", href: "/equipment", icon: Wrench },
+];
+
+// Super Admin navigation
+const adminNavigation = [
+  { name: "Operations", href: "/worker/operations", icon: PackageOpen },
   { name: "Inventory", href: "/inventory", icon: Package },
   { name: "Projects", href: "/projects", icon: Building2 },
   { name: "Reports", href: "/reports", icon: BarChart3 },
@@ -36,6 +64,28 @@ const navigation = [
 export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { profile } = useUserProfile();
+  const { isAuthenticated } = useAuthContext();
+
+  // Memoize navigation to prevent recalculation on every render
+  const navigation = useMemo(() => {
+    if (!isAuthenticated || !profile) {
+      console.log('🔍 Using base navigation (no auth/profile)');
+      return baseNavigation;
+    }
+    
+    console.log('🔍 Using navigation for role:', profile.role);
+    switch (profile.role) {
+      case 'worker':
+        return [...baseNavigation, ...workerNavigation];
+      case 'project_manager':
+        return [...baseNavigation, ...managerNavigation];
+      case 'super_admin':
+        return [...baseNavigation, ...adminNavigation];
+      default:
+        return baseNavigation;
+    }
+  }, [isAuthenticated, profile?.role]);
 
   return (
     <div

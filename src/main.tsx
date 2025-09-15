@@ -9,10 +9,21 @@ if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
 
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+const isDevelopment = import.meta.env.DEV;
+
+const AppWithOptionalStrictMode = () => {
+  const content = (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
       <App />
     </ClerkProvider>
-  </React.StrictMode>
-);
+  );
+
+  // Only use StrictMode in development to avoid double renders in production
+  return isDevelopment ? (
+    <React.StrictMode>{content}</React.StrictMode>
+  ) : (
+    content
+  );
+};
+
+createRoot(document.getElementById("root")!).render(<AppWithOptionalStrictMode />);
