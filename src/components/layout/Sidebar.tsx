@@ -46,6 +46,7 @@ const managerNavigation = [
   { name: "Projects", href: "/projects", icon: Building2 },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+  { name: "Vendors", href: "/vendors", icon: Truck },
   { name: "Equipment", href: "/equipment", icon: Wrench },
 ];
 
@@ -56,6 +57,7 @@ const adminNavigation = [
   { name: "Projects", href: "/projects", icon: Building2 },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Procurement", href: "/procurement", icon: ShoppingCart },
+  { name: "Vendors", href: "/vendors", icon: Truck },
   { name: "Equipment", href: "/equipment", icon: Wrench },
   { name: "Users", href: "/users", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
