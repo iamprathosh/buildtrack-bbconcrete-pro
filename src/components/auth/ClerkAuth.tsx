@@ -86,7 +86,7 @@ function AuthenticationScreen() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
+          <SignInButton mode="modal" fallbackRedirectUrl="/">
             <Button className="w-full" size="lg">
               Sign In
             </Button>
@@ -112,7 +112,7 @@ function AuthenticationScreen() {
             Create Account
           </Button>
           
-          <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
+          <SignUpButton mode="modal" fallbackRedirectUrl="/">
             <Button className="hidden" id="clerk-signup-trigger">
               Hidden Signup
             </Button>
