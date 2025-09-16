@@ -4,7 +4,7 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App.tsx";
 import "./index.css";
 
-const PUBLISHABLE_KEY = "pk_test_dWx0aW1hdGUtY3JhbmUtNjMuY2xlcmsuYWNjb3VudHMuZGV2JA";
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
@@ -13,7 +13,13 @@ const isDevelopment = import.meta.env.DEV;
 
 const AppWithOptionalStrictMode = () => {
   const content = (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY}
+      signInUrl="/"
+      signUpUrl="/"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
+    >
       <App />
     </ClerkProvider>
   );
