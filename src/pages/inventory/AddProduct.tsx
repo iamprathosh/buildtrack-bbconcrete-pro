@@ -8,14 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { useSkuGeneration } from "@/hooks/useSkuGeneration";
 import { toast } from "sonner";
-import { Package } from "lucide-react";
+import { Package, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
 export default function AddProduct() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { generateSku, isGenerating } = useSkuGeneration();
   const [formData, setFormData] = useState({
     sku: '',
     name: '',
@@ -26,7 +29,8 @@ export default function AddProduct() {
     min_stock_level: '0',
     max_stock_level: '1000',
     current_stock: '0',
-    location: ''
+    location: '',
+    image_url: ''
   });
 
   // Fetch categories for dropdown
@@ -45,6 +49,12 @@ export default function AddProduct() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleGenerateSku = async () => {
+    const selectedCategory = categories?.find(cat => cat.id === formData.category_id);
+    const newSku = await generateSku(formData.category_id, selectedCategory?.name);
+    setFormData(prev => ({ ...prev, sku: newSku }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +80,8 @@ export default function AddProduct() {
           min_stock_level: parseInt(formData.min_stock_level),
           max_stock_level: parseInt(formData.max_stock_level),
           current_stock: parseInt(formData.current_stock),
-          location: formData.location || null
+          location: formData.location || null,
+          image_url: formData.image_url || null
         });
 
       if (error) throw error;
@@ -101,13 +112,29 @@ export default function AddProduct() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="sku">SKU *</Label>
-                    <Input
-                      id="sku"
-                      value={formData.sku}
-                      onChange={(e) => handleInputChange('sku', e.target.value)}
-                      placeholder="Enter SKU"
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="sku"
+                        value={formData.sku}
+                        onChange={(e) => handleInputChange('sku', e.target.value)}
+                        placeholder="Enter SKU or generate automatically"
+                        required
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateSku}
+                        disabled={isGenerating}
+                        className="px-3"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Click refresh to auto-generate SKU based on category
+                    </p>
                   </div>
                   
                   <div>
@@ -130,6 +157,14 @@ export default function AddProduct() {
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     placeholder="Enter product description"
                     rows={3}
+                  />
+                </div>
+
+                <div>
+                  <ImageUpload
+                    onImageUpload={(url) => handleInputChange('image_url', url)}
+                    currentImage={formData.image_url}
+                    label="Product Image"
                   />
                 </div>
 
