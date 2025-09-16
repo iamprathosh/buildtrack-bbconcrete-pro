@@ -22,6 +22,8 @@ const ProjectsOverview = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
   const [newProject, setNewProject] = useState({
     name: "",
     job_number: "",
@@ -39,11 +41,39 @@ const ProjectsOverview = () => {
     projects, 
     isLoading, 
     error, 
-    createProject 
+    createProject,
+    updateProject
   } = useProjects();
   
   const { data: customers } = useCustomers();
   const { data: users } = useUsers();
+
+  // Date validation helper functions
+  const validateDates = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return { isValid: true, error: null };
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (end < start) {
+      return { 
+        isValid: false, 
+        error: "End date cannot be before start date" 
+      };
+    }
+    
+    return { isValid: true, error: null };
+  };
+  
+  const isStartDateInPast = (startDate: string) => {
+    if (!startDate) return false;
+    
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return start < today;
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -61,6 +91,7 @@ const ProjectsOverview = () => {
   };
 
   const handleCreateProject = async () => {
+    // Basic required field validation
     if (!newProject.name || !newProject.job_number) {
       toast({
         title: "Error",
@@ -68,6 +99,37 @@ const ProjectsOverview = () => {
         variant: "destructive"
       });
       return;
+    }
+
+    // Date validation
+    if (newProject.start_date && newProject.end_date) {
+      const startDate = new Date(newProject.start_date);
+      const endDate = new Date(newProject.end_date);
+      
+      if (endDate < startDate) {
+        toast({
+          title: "Error",
+          description: "End date cannot be before start date.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Optional: Check if start date is in the past (warning only)
+    if (newProject.start_date) {
+      const startDate = new Date(newProject.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to compare just dates
+      
+      if (startDate < today) {
+        toast({
+          title: "Warning",
+          description: "Start date is in the past. Please verify this is correct.",
+          variant: "default"
+        });
+        // Don't return - allow past dates but warn user
+      }
     }
 
     const projectData = {
@@ -91,6 +153,73 @@ const ProjectsOverview = () => {
       end_date: "",
       status: "planning"
     });
+  };
+  
+  const handleEditProject = (project: any) => {
+    setEditingProject({
+      ...project,
+      budget: project.budget?.toString() || "",
+      start_date: project.start_date || "",
+      end_date: project.end_date || "",
+      original_start_date: project.start_date || "" // Store original for comparison
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleUpdateProject = async () => {
+    // Basic required field validation
+    if (!editingProject || !editingProject.name || !editingProject.job_number) {
+      toast({
+        title: "Error",
+        description: "Project name and job number are required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Date validation
+    if (editingProject.start_date && editingProject.end_date) {
+      const startDate = new Date(editingProject.start_date);
+      const endDate = new Date(editingProject.end_date);
+      
+      if (endDate < startDate) {
+        toast({
+          title: "Error",
+          description: "End date cannot be before start date.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Optional: Check if start date is in the past (warning only for existing projects)
+    if (editingProject.start_date) {
+      const startDate = new Date(editingProject.start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to compare just dates
+      
+      // Only warn for new start dates that are being set to the past
+      const originalStartDate = editingProject.original_start_date || editingProject.start_date;
+      if (startDate < today && editingProject.start_date !== originalStartDate) {
+        toast({
+          title: "Warning",
+          description: "Start date is in the past. Please verify this is correct.",
+          variant: "default"
+        });
+        // Don't return - allow past dates but warn user
+      }
+    }
+
+    const projectData = {
+      ...editingProject,
+      budget: editingProject.budget ? parseFloat(editingProject.budget) : null,
+      start_date: editingProject.start_date || null,
+      end_date: editingProject.end_date || null,
+    };
+
+    await updateProject.mutateAsync(projectData);
+    setIsEditDialogOpen(false);
+    setEditingProject(null);
   };
 
   const getProgressColor = (progress: number) => {
@@ -316,21 +445,35 @@ const ProjectsOverview = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="start_date">Start Date</Label>
+                    <Label htmlFor="start_date">
+                      Start Date
+                      {isStartDateInPast(newProject.start_date) && (
+                        <span className="text-xs text-amber-600 ml-2">(Past date)</span>
+                      )}
+                    </Label>
                     <Input
                       id="start_date"
                       type="date"
                       value={newProject.start_date}
                       onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
+                      className={isStartDateInPast(newProject.start_date) ? "border-amber-300" : ""}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="end_date">End Date</Label>
+                    <Label htmlFor="end_date">
+                      End Date
+                      {!validateDates(newProject.start_date, newProject.end_date).isValid && (
+                        <span className="text-xs text-red-600 ml-2">
+                          ({validateDates(newProject.start_date, newProject.end_date).error})
+                        </span>
+                      )}
+                    </Label>
                     <Input
                       id="end_date"
                       type="date"
                       value={newProject.end_date}
                       onChange={(e) => setNewProject({...newProject, end_date: e.target.value})}
+                      className={!validateDates(newProject.start_date, newProject.end_date).isValid ? "border-red-300" : ""}
                     />
                   </div>
                   <div className="col-span-2 space-y-2">
@@ -350,10 +493,158 @@ const ProjectsOverview = () => {
                   </Button>
                   <Button 
                     onClick={handleCreateProject}
-                    disabled={createProject.isPending}
+                    disabled={createProject.isPending || !validateDates(newProject.start_date, newProject.end_date).isValid}
                   >
                     {createProject.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Create Project
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Edit Project Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="font-montserrat">Edit Project</DialogTitle>
+                </DialogHeader>
+                {editingProject && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_name">Project Name *</Label>
+                      <Input
+                        id="edit_name"
+                        value={editingProject.name}
+                        onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
+                        placeholder="Enter project name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_job_number">Job Number *</Label>
+                      <Input
+                        id="edit_job_number"
+                        value={editingProject.job_number}
+                        onChange={(e) => setEditingProject({...editingProject, job_number: e.target.value})}
+                        placeholder="Enter job number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_customer">Customer</Label>
+                      <Select value={editingProject.customer_id} onValueChange={(value) => setEditingProject({...editingProject, customer_id: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers?.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_manager">Project Manager</Label>
+                      <Select value={editingProject.project_manager_id} onValueChange={(value) => setEditingProject({...editingProject, project_manager_id: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select manager" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users?.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_status">Status</Label>
+                      <Select value={editingProject.status} onValueChange={(value) => setEditingProject({...editingProject, status: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="planning">Planning</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_location">Location</Label>
+                      <Input
+                        id="edit_location"
+                        value={editingProject.location}
+                        onChange={(e) => setEditingProject({...editingProject, location: e.target.value})}
+                        placeholder="Enter project location"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_budget">Budget</Label>
+                      <Input
+                        id="edit_budget"
+                        type="number"
+                        value={editingProject.budget}
+                        onChange={(e) => setEditingProject({...editingProject, budget: e.target.value})}
+                        placeholder="Enter budget amount"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_start_date">
+                        Start Date
+                        {isStartDateInPast(editingProject.start_date) && (
+                          <span className="text-xs text-amber-600 ml-2">(Past date)</span>
+                        )}
+                      </Label>
+                      <Input
+                        id="edit_start_date"
+                        type="date"
+                        value={editingProject.start_date}
+                        onChange={(e) => setEditingProject({...editingProject, start_date: e.target.value})}
+                        className={isStartDateInPast(editingProject.start_date) ? "border-amber-300" : ""}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_end_date">
+                        End Date
+                        {!validateDates(editingProject.start_date, editingProject.end_date).isValid && (
+                          <span className="text-xs text-red-600 ml-2">
+                            ({validateDates(editingProject.start_date, editingProject.end_date).error})
+                          </span>
+                        )}
+                      </Label>
+                      <Input
+                        id="edit_end_date"
+                        type="date"
+                        value={editingProject.end_date}
+                        onChange={(e) => setEditingProject({...editingProject, end_date: e.target.value})}
+                        className={!validateDates(editingProject.start_date, editingProject.end_date).isValid ? "border-red-300" : ""}
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="edit_description">Description</Label>
+                      <Textarea
+                        id="edit_description"
+                        value={editingProject.description}
+                        onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
+                        placeholder="Enter project description"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleUpdateProject}
+                    disabled={updateProject.isPending || (editingProject && !validateDates(editingProject.start_date, editingProject.end_date).isValid)}
+                  >
+                    {updateProject.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Update Project
                   </Button>
                 </div>
               </DialogContent>
@@ -369,6 +660,7 @@ const ProjectsOverview = () => {
                 key={project.id}
                 project={project}
                 getStatusBadge={getStatusBadge}
+                onEdit={handleEditProject}
               />
             ))}
           </div>
@@ -379,6 +671,7 @@ const ProjectsOverview = () => {
                 key={project.id}
                 project={project}
                 getStatusBadge={getStatusBadge}
+                onEdit={handleEditProject}
               />
             ))}
           </div>

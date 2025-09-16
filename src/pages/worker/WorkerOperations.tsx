@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useProjectTransactions } from "@/hooks/useProjectTransactions";
 import { RoleGuard, AdminManagerGuard } from "@/components/auth/RoleGuard";
 import { 
   Package, 
@@ -28,7 +29,10 @@ import {
   X,
   ArrowLeft,
   Building,
-  User
+  User,
+  History,
+  Calendar,
+  Clock
 } from "lucide-react";
 import { Database } from '@/integrations/supabase/types';
 
@@ -62,6 +66,7 @@ export default function WorkerOperations() {
   const [notes, setNotes] = useState<string>("");
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTransactions, setShowTransactions] = useState(false);
 
   // Fetch products with category information
   const { data: products = [], isLoading: isLoadingProducts } = useQuery({
@@ -107,6 +112,12 @@ export default function WorkerOperations() {
       return data || [];
     }
   });
+
+  // Fetch project transactions
+  const { 
+    data: transactions = [], 
+    isLoading: isLoadingTransactions 
+  } = useProjectTransactions(selectedProject);
 
   // Stock transaction mutation
   const stockTransactionMutation = useMutation({
@@ -474,11 +485,22 @@ export default function WorkerOperations() {
                       {selectedProducts.length} items selected for {projects.find(p => p.id === selectedProject)?.name}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <Building className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Project: {projects.find(p => p.id === selectedProject)?.name}
-                    </span>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        Project: {projects.find(p => p.id === selectedProject)?.name}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTransactions(!showTransactions)}
+                      className="flex items-center gap-2"
+                    >
+                      <History className="h-4 w-4" />
+                      {showTransactions ? 'Hide History' : 'View History'}
+                    </Button>
                   </div>
                 </div>
                 <Button
@@ -491,6 +513,82 @@ export default function WorkerOperations() {
                   Back to Selection
                 </Button>
               </div>
+
+              {/* Transaction History */}
+              {showTransactions && (
+                <Card className="mb-6 gradient-card border-0 shadow-brand">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 font-montserrat">
+                      <History className="h-5 w-5 text-primary" />
+                      Recent Transactions - {projects.find(p => p.id === selectedProject)?.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingTransactions ? (
+                      <div className="text-center py-8">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-2"></div>
+                        <p className="text-sm text-muted-foreground">Loading transactions...</p>
+                      </div>
+                    ) : transactions.length > 0 ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {transactions.slice(0, 20).map((transaction) => (
+                          <div 
+                            key={transaction.id} 
+                            className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${
+                                transaction.transaction_type === 'pull' ? 'bg-red-500' :
+                                transaction.transaction_type === 'receive' ? 'bg-green-500' : 'bg-blue-500'
+                              }`}></div>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {transaction.product_name} ({transaction.product_sku})
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {transaction.user_name} • {transaction.product_category}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={
+                                    transaction.transaction_type === 'pull' ? 'destructive' :
+                                    transaction.transaction_type === 'receive' ? 'default' : 'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {transaction.transaction_type === 'pull' ? 'Pulled' :
+                                   transaction.transaction_type === 'receive' ? 'Received' : 'Returned'}
+                                </Badge>
+                                <span className="font-medium text-sm">
+                                  {transaction.quantity} {transaction.product_unit}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(transaction.created_at).toLocaleDateString()} at {new Date(transaction.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                              {transaction.notes && (
+                                <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate">
+                                  {transaction.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <History className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                        <p className="text-muted-foreground">No transactions yet for this project</p>
+                        <p className="text-sm text-muted-foreground">Start by pulling, receiving, or returning items</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Filters */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
