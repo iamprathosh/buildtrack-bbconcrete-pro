@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { toast } from '@/hooks/use-toast';
 import { Database } from '@/integrations/supabase/types';
+import { useMemo } from 'react';
 
 type Equipment = Database['public']['Tables']['equipment']['Row'];
 type EquipmentInsert = Database['public']['Tables']['equipment']['Insert'];
@@ -27,36 +28,38 @@ export const useEquipment = () => {
   } = useQuery({
     queryKey: ['equipment'],
     queryFn: async (): Promise<EquipmentWithMaintenance[]> => {
+      // Fetch equipment and maintenance data in a single query with joins
       const { data: equipmentData, error: equipmentError } = await supabase
         .from('equipment')
-        .select('*')
+        .select(`
+          *,
+          equipment_maintenance (
+            id,
+            status,
+            scheduled_date,
+            completed_date,
+            next_maintenance_date
+          )
+        `)
         .order('equipment_number', { ascending: true });
 
       if (equipmentError) throw equipmentError;
 
-      // Get maintenance data for each equipment
-      const equipmentWithMaintenance = await Promise.all(
-        equipmentData.map(async (eq) => {
-          const { data: maintenanceData } = await supabase
-            .from('equipment_maintenance')
-            .select('*')
-            .eq('equipment_id', eq.id)
-            .order('scheduled_date', { ascending: false })
-            .limit(2);
+      // Process the joined data
+      const equipmentWithMaintenance = equipmentData.map((eq) => {
+        const maintenanceData = eq.equipment_maintenance || [];
+        const nextMaintenance = maintenanceData.find(m => m.status === 'scheduled');
+        const lastCompleted = maintenanceData.find(m => m.status === 'completed');
 
-          const nextMaintenance = maintenanceData?.find(m => m.status === 'scheduled');
-          const lastCompleted = maintenanceData?.find(m => m.status === 'completed');
-
-          return {
-            ...eq,
-            next_maintenance: nextMaintenance?.scheduled_date || nextMaintenance?.next_maintenance_date,
-            last_maintenance: lastCompleted?.completed_date,
-            maintenance_due_days: nextMaintenance?.scheduled_date 
-              ? Math.ceil((new Date(nextMaintenance.scheduled_date).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
-              : undefined
-          };
-        })
-      );
+        return {
+          ...eq,
+          next_maintenance: nextMaintenance?.scheduled_date || nextMaintenance?.next_maintenance_date,
+          last_maintenance: lastCompleted?.completed_date,
+          maintenance_due_days: nextMaintenance?.scheduled_date 
+            ? Math.ceil((new Date(nextMaintenance.scheduled_date).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+            : undefined
+        };
+      });
 
       return equipmentWithMaintenance;
     }
@@ -117,17 +120,28 @@ export const useEquipment = () => {
   // Update equipment mutation
   const updateEquipment = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & EquipmentUpdate) => {
+      console.log('Updating equipment:', { id, updates });
+      
+      const updateData = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Update data being sent:', updateData);
+      
       const { data, error } = await supabase
         .from('equipment')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+      
+      console.log('Update successful:', data);
       return data;
     },
     onSuccess: () => {
@@ -326,17 +340,27 @@ export const useEquipment = () => {
 export const useEquipmentStats = () => {
   const { equipment } = useEquipment();
 
-  const stats = {
-    total: equipment.length,
-    available: equipment.filter(eq => eq.status === 'available').length,
-    checkedOut: equipment.filter(eq => eq.status === 'checked_out').length,
-    maintenance: equipment.filter(eq => eq.status === 'maintenance').length,
-    retired: equipment.filter(eq => eq.status === 'retired').length,
-    totalValue: equipment.reduce((sum, eq) => sum + (eq.current_value || 0), 0),
-    maintenanceDue: equipment.filter(eq => 
+  const stats = useMemo(() => {
+    const total = equipment.length;
+    const available = equipment.filter(eq => eq.status === 'available').length;
+    const checkedOut = equipment.filter(eq => eq.status === 'checked_out').length;
+    const maintenance = equipment.filter(eq => eq.status === 'maintenance').length;
+    const retired = equipment.filter(eq => eq.status === 'retired').length;
+    const totalValue = equipment.reduce((sum, eq) => sum + (eq.current_value || 0), 0);
+    const maintenanceDue = equipment.filter(eq => 
       eq.maintenance_due_days !== undefined && eq.maintenance_due_days <= 30
-    ).length
-  };
+    ).length;
+
+    return {
+      total,
+      available,
+      checkedOut,
+      maintenance,
+      retired,
+      totalValue,
+      maintenanceDue
+    };
+  }, [equipment]);
 
   return stats;
 };
