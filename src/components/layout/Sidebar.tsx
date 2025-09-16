@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { ClerkUserButton } from "@/components/auth/ClerkAuth";
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -12,7 +11,6 @@ import {
   Users,
   Wrench,
   Home,
-  Bell,
   PackageOpen,
   Cog
 } from "lucide-react";
@@ -135,24 +133,6 @@ export function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
 
-      {/* User Actions */}
-      <div className="border-t border-sidebar-border p-2">
-        <Button
-          asChild
-          variant="ghost"
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          size={collapsed ? "icon" : "default"}
-        >
-          <Link to="/notifications">
-            <Bell className="h-5 w-5" />
-            {!collapsed && <span className="ml-3 font-inter">Notifications</span>}
-          </Link>
-        </Button>
-        
-        <div className="flex justify-center mt-2">
-          <ClerkUserButton />
-        </div>
-      </div>
 
       {/* Collapse Toggle */}
       <div className="border-t border-sidebar-border p-2">
