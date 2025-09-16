@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { useProducts, useProductCategories, useInventoryLocations, ProductInsert } from "@/hooks/useProducts";
-import { Plus } from "lucide-react";
+import { useSkuGeneration } from "@/hooks/useSkuGeneration";
+import { Plus, RefreshCw } from "lucide-react";
 
 interface AddProductDialogProps {
   children: React.ReactNode;
@@ -27,12 +29,14 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
     supplier: "",
     location: "",
     mauc: 0,
+    image_url: "",
     is_active: true
   });
 
   const { createProduct } = useProducts();
   const { data: categories } = useProductCategories();
   const { data: locations } = useInventoryLocations();
+  const { generateSku, isGenerating } = useSkuGeneration();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +63,7 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
         supplier: "",
         location: "",
         mauc: 0,
+        image_url: "",
         is_active: true
       });
     } catch (error) {
@@ -71,6 +76,12 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleGenerateSku = async () => {
+    const selectedCategory = categories?.find(cat => cat.id === formData.category_id);
+    const newSku = await generateSku(formData.category_id, selectedCategory?.name);
+    handleInputChange('sku', newSku);
   };
 
   return (
@@ -106,14 +117,29 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
             
             <div className="space-y-2">
               <Label htmlFor="sku" className="font-inter font-semibold">SKU *</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => handleInputChange('sku', e.target.value)}
-                placeholder="Enter SKU"
-                required
-                className="font-inter"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="sku"
+                  value={formData.sku}
+                  onChange={(e) => handleInputChange('sku', e.target.value)}
+                  placeholder="Enter SKU or generate automatically"
+                  required
+                  className="font-inter flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateSku}
+                  disabled={isGenerating}
+                  className="px-3"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Click the refresh button to auto-generate SKU based on category
+              </p>
             </div>
             
             <div className="space-y-2 md:col-span-2">
@@ -125,6 +151,14 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
                 placeholder="Enter product description"
                 className="font-inter"
                 rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2 md:col-span-2">
+              <ImageUpload
+                onImageUpload={(url) => handleInputChange('image_url', url)}
+                currentImage={formData.image_url}
+                label="Product Image"
               />
             </div>
             

@@ -12,9 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Package, Search, Plus, Filter, Download, AlertTriangle, TrendingUp, TrendingDown, Edit } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { AddProductDialog } from "@/components/inventory/AddProductDialog";
+import { EditProductDialog } from "@/components/inventory/EditProductDialog";
 import { toast } from "@/hooks/use-toast";
 
 const InventoryOverview = () => {
@@ -446,9 +447,17 @@ const InventoryOverview = () => {
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="font-montserrat text-xl">
-                Product Details
-              </DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="font-montserrat text-xl">
+                  Product Details
+                </DialogTitle>
+                <EditProductDialog product={selectedProduct}>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Edit Product
+                  </Button>
+                </EditProductDialog>
+              </div>
             </DialogHeader>
             
             {selectedProduct && (

@@ -1,14 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseClient } from '@/providers/SupabaseProvider';
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Search, AlertTriangle, TrendingUp, TrendingDown, Filter, Package2, Grid3X3, List, LayoutGrid } from "lucide-react";
+import { Package, Search, AlertTriangle, TrendingUp, TrendingDown, Filter, Package2, Grid3X3, List, LayoutGrid, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AdminManagerGuard } from "@/components/auth/RoleGuard";
+import { EditProductDialog } from "@/components/inventory/EditProductDialog";
 
 interface ProductWithCategory {
   id: string;
@@ -27,6 +29,7 @@ const WorkerInventory = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { supabase } = useSupabaseClient();
 
   // Fetch products with category information
   const { data: products = [], isLoading: isLoadingProducts } = useQuery({
@@ -35,8 +38,16 @@ const WorkerInventory = () => {
       const { data, error } = await supabase
         .from('products')
         .select(`
-          *,
-          product_categories (
+          id,
+          name,
+          sku,
+          current_stock,
+          unit_of_measure,
+          image_url,
+          description,
+          location,
+          category_id,
+          product_categories!category_id (
             name
           )
         `)
@@ -259,19 +270,32 @@ const WorkerInventory = () => {
                     const StatusIcon = stockStatus.icon;
                     
                     return (
-                      <Card key={product.id} className="hover:shadow-lg transition-all duration-200">
+                      <Card key={product.id} className="hover:shadow-lg transition-all duration-200 relative group">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <Badge variant="outline" className="text-xs">
                               {product.category}
                             </Badge>
-                            <Badge 
-                              variant={stockStatus.variant as any}
-                              className="text-xs flex items-center gap-1"
-                            >
-                              <StatusIcon className="h-3 w-3" />
-                              {stockStatus.label}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={stockStatus.variant as any}
+                                className="text-xs flex items-center gap-1"
+                              >
+                                <StatusIcon className="h-3 w-3" />
+                                {stockStatus.label}
+                              </Badge>
+                              <AdminManagerGuard>
+                                <EditProductDialog product={product as any}>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                </EditProductDialog>
+                              </AdminManagerGuard>
+                            </div>
                           </div>
                           
                           <div className="text-center mb-3">
@@ -368,15 +392,28 @@ const WorkerInventory = () => {
                                   </div>
                                 </div>
                                 
-                                {/* Stock Status */}
+                                {/* Stock Status and Actions */}
                                 <div className="flex flex-col items-end gap-2">
-                                  <Badge 
-                                    variant={stockStatus.variant as any}
-                                    className="text-xs flex items-center gap-1"
-                                  >
-                                    <StatusIcon className="h-3 w-3" />
-                                    {stockStatus.label}
-                                  </Badge>
+                                  <div className="flex items-center gap-2">
+                                    <Badge 
+                                      variant={stockStatus.variant as any}
+                                      className="text-xs flex items-center gap-1"
+                                    >
+                                      <StatusIcon className="h-3 w-3" />
+                                      {stockStatus.label}
+                                    </Badge>
+                                    <AdminManagerGuard>
+                                      <EditProductDialog product={product as any}>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm"
+                                          className="p-1 h-6 w-6"
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                      </EditProductDialog>
+                                    </AdminManagerGuard>
+                                  </div>
                                   <div className="text-right">
                                     <div className="text-xl font-bold text-foreground">
                                       {product.current_stock}
