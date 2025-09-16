@@ -1,9 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Users, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, Users, MapPin, Edit, Eye } from "lucide-react";
 
 interface ProjectCardProps {
   project: {
@@ -21,11 +26,15 @@ interface ProjectCardProps {
     teamSize: number;
     client: string;
     manager: string;
+    customer_id?: string;
+    project_manager_id?: string;
   };
   getStatusBadge: (status: string) => { variant: string; label: string };
+  onEdit?: (project: any) => void;
 }
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, getStatusBadge }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, getStatusBadge, onEdit }) => {
+  const [showDetails, setShowDetails] = useState(false);
   const statusBadge = getStatusBadge(project.status);
   const budgetUsed = project.budget ? (project.spent / project.budget) * 100 : 0;
 
@@ -111,10 +120,164 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, getStatusBadg
           </div>
         </div>
 
-        <Button variant="outline" className="w-full">
-          View Details
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={() => setShowDetails(true)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            View Details
+          </Button>
+          {onEdit && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => onEdit(project)}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </CardContent>
+      
+      {/* Project Details Dialog */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Project Details - {project.name}
+            </DialogTitle>
+            <DialogDescription>
+              Complete project information and statistics
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Project Name</Label>
+                <p className="font-medium">{project.name}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Job Number</Label>
+                <p className="font-medium">{project.job_number}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Client</Label>
+                <p className="font-medium">{project.client}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Project Manager</Label>
+                <p className="font-medium">{project.manager}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                <div>
+                  <Badge variant={statusBadge.variant as any}>
+                    {statusBadge.label}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Team Size</Label>
+                <p className="font-medium">{project.teamSize} members</p>
+              </div>
+            </div>
+            
+            {/* Description */}
+            {project.description && (
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                <p className="text-sm mt-1">{project.description}</p>
+              </div>
+            )}
+            
+            {/* Location */}
+            {project.location && (
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Location</Label>
+                <p className="text-sm mt-1 flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  {project.location}
+                </p>
+              </div>
+            )}
+            
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              {project.start_date && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
+                  <p className="text-sm mt-1 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {new Date(project.start_date).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+              {project.end_date && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
+                  <p className="text-sm mt-1 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {new Date(project.end_date).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Progress */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label className="text-sm font-medium text-muted-foreground">Progress</Label>
+                <span className="text-sm font-medium">{Math.round(project.progress)}%</span>
+              </div>
+              <Progress value={project.progress} className="h-2" />
+            </div>
+            
+            {/* Budget */}
+            {project.budget && (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <Label className="text-sm font-medium text-muted-foreground">Budget</Label>
+                  <p className="text-lg font-bold text-primary">
+                    ${project.budget.toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <Label className="text-sm font-medium text-muted-foreground">Spent</Label>
+                  <p className="text-lg font-bold text-warning">
+                    ${project.spent.toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <Label className="text-sm font-medium text-muted-foreground">Remaining</Label>
+                  <p className="text-lg font-bold text-success">
+                    ${(project.budget - project.spent).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetails(false)}>
+              Close
+            </Button>
+            {onEdit && (
+              <Button onClick={() => {
+                setShowDetails(false);
+                onEdit(project);
+              }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Project
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
