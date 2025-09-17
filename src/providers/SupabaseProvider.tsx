@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
+import { supabase as defaultSupabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 interface SupabaseContextType {
@@ -30,9 +30,7 @@ export function SupabaseProvider({ children }: SupabaseProviderProps) {
   // Use centralized auth context instead of direct Clerk hooks
   const { user, userId, isAuthenticated: authContextAuthenticated, isLoaded, isLoading: authLoading } = useAuthContext();
   
-  const [supabase] = useState<SupabaseClient<Database>>(() =>
-    createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
-  );
+  const [supabase] = useState<SupabaseClient<Database>>(() => defaultSupabase);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   

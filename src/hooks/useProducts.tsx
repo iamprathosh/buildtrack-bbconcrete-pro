@@ -63,24 +63,46 @@ export function useProducts() {
         throw productsError;
       }
       
-      // Get all categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('product_categories')
-        .select('id, name');
-      
-      if (categoriesError) {
-        console.error('Categories query error:', categoriesError);
-        // Continue without categories rather than failing
+      // Get all categories - if this fails due to RLS, continue with fallback
+      let categoriesData = null;
+      try {
+        const { data, error: categoriesError } = await supabase
+          .from('product_categories')
+          .select('id, name');
+        
+        if (categoriesError) {
+          console.warn('Categories query error (likely RLS):', categoriesError);
+          // Log specific error details for debugging
+          if (categoriesError.code) {
+            console.warn('Error code:', categoriesError.code);
+            console.warn('Error hint:', categoriesError.hint);
+          }
+        } else {
+          categoriesData = data;
+        }
+      } catch (err) {
+        console.warn('Categories query failed completely:', err);
       }
       
-      // Get vendors for supplier lookup
-      const { data: vendorsData, error: vendorsError } = await supabase
-        .from('vendors')
-        .select('id, name');
-      
-      if (vendorsError) {
-        console.error('Vendors query error:', vendorsError);
-        // Continue without vendors rather than failing
+      // Get vendors for supplier lookup - if this fails due to RLS, continue with fallback
+      let vendorsData = null;
+      try {
+        const { data, error: vendorsError } = await supabase
+          .from('vendors')
+          .select('id, name');
+        
+        if (vendorsError) {
+          console.warn('Vendors query error (likely RLS):', vendorsError);
+          // Log specific error details for debugging
+          if (vendorsError.code) {
+            console.warn('Vendors error code:', vendorsError.code);
+            console.warn('Vendors error hint:', vendorsError.hint);
+          }
+        } else {
+          vendorsData = data;
+        }
+      } catch (err) {
+        console.warn('Vendors query failed completely:', err);
       }
       
       // Create category lookup object

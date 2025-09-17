@@ -25,17 +25,16 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
       const results: SearchResult[] = [];
 
       try {
-        // Search Products
+        // Search Products - optimized query
         const { data: products } = await supabase
           .from('products')
           .select(`
-            id, name, sku, description, supplier, current_stock,
-            product_categories(name),
-            inventory_locations(name)
+            id, name, sku, current_stock,
+            product_categories(name)
           `)
-          .or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,supplier.ilike.%${searchTerm}%`)
+          .or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`)
           .eq('is_active', true)
-          .limit(10);
+          .limit(5);
 
         products?.forEach(product => {
           results.push({
@@ -43,25 +42,24 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
             type: 'product',
             title: product.name,
             subtitle: `SKU: ${product.sku}`,
-            description: product.description || `Stock: ${product.current_stock || 0}`,
+            description: `Stock: ${product.current_stock || 0}`,
             url: `/inventory/${product.id}`,
             metadata: {
               category: product.product_categories?.name,
-              location: product.inventory_locations?.name,
               stock: product.current_stock
             }
           });
         });
 
-        // Search Projects
+        // Search Projects - optimized
         const { data: projects } = await supabase
           .from('projects')
           .select(`
-            id, name, job_number, description, status, location,
+            id, name, job_number, status,
             customers(name)
           `)
-          .or(`name.ilike.%${searchTerm}%,job_number.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%`)
-          .limit(10);
+          .or(`name.ilike.%${searchTerm}%,job_number.ilike.%${searchTerm}%`)
+          .limit(5);
 
         projects?.forEach(project => {
           results.push({
@@ -69,12 +67,11 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
             type: 'project',
             title: project.name,
             subtitle: `Job #${project.job_number}`,
-            description: project.customers?.name || project.location,
+            description: project.customers?.name || `Status: ${project.status}`,
             url: `/projects/${project.id}`,
             metadata: {
               status: project.status,
-              customer: project.customers?.name,
-              location: project.location
+              customer: project.customers?.name
             }
           });
         });
@@ -84,7 +81,7 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
           .from('customers')
           .select('id, name, contact, email, phone')
           .or(`name.ilike.%${searchTerm}%,contact.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
-          .limit(8);
+          .limit(3);
 
         customers?.forEach(customer => {
           results.push({
@@ -107,7 +104,7 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
           .from('vendors')
           .select('id, name, contact_person, email, phone')
           .or(`name.ilike.%${searchTerm}%,contact_person.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-          .limit(8);
+          .limit(3);
 
         vendors?.forEach(vendor => {
           results.push({
@@ -133,7 +130,7 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
             vendors(name)
           `)
           .or(`po_number.ilike.%${searchTerm}%,notes.ilike.%${searchTerm}%`)
-          .limit(8);
+          .limit(3);
 
         purchaseOrders?.forEach(po => {
           results.push({
@@ -168,7 +165,9 @@ export function useGlobalSearch(query: string, enabled: boolean = true) {
       }
     },
     enabled: enabled && query.trim().length >= 2,
-    staleTime: 30000, // 30 seconds
-    refetchOnWindowFocus: false
+    staleTime: 60000, // 1 minute
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    gcTime: 5 * 60 * 1000 // 5 minutes cache
   });
 }

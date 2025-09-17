@@ -12,22 +12,37 @@ export function useUserProfile() {
   const { supabase, isLoading: supabaseLoading } = useSupabaseClient();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false to not block UI
   const [error, setError] = useState<string | null>(null);
   
   // Cache for profile data to prevent redundant syncs
   const [lastSyncUserId, setLastSyncUserId] = useState<string | null>(null);
   const [profileCache, setProfileCache] = useState<{[userId: string]: UserProfile}>({});
+  
+  // Separate state to track if we've attempted to load the profile
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  
+  // Track active sync operations to prevent race conditions
+  const [activeSyncUserId, setActiveSyncUserId] = useState<string | null>(null);
 
   const syncUserProfile = useCallback(async (forceRefresh = false) => {
     try {
+      // Prevent race conditions - if already syncing this user, skip
+      if (activeSyncUserId === userId && !forceRefresh) {
+        console.log('🔄 Sync already in progress for user:', userId);
+        return;
+      }
+      
+      setActiveSyncUserId(userId);
       setLoading(true);
       setError(null);
+      setHasAttemptedLoad(true);
       
       if (!user || !userId) {
         console.log('❌ No user found');
         setProfile(null);
         setLoading(false);
+        setActiveSyncUserId(null);
         return;
       }
 
@@ -37,6 +52,7 @@ export function useUserProfile() {
           console.log('📋 Using cached profile for user:', userId);
           setProfile(profileCache[userId]);
           setLoading(false);
+          setActiveSyncUserId(null);
           return;
         }
       }
@@ -86,18 +102,21 @@ export function useUserProfile() {
 
         console.log('📝 Profile data to insert:', profileData);
 
-        // Create new user profile
+        // Create new user profile using upsert to handle race conditions
         const { data: newProfile, error: insertError } = await supabase
           .from('user_profiles')
-          .insert(profileData)
+          .upsert(profileData, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          })
           .select()
           .single();
 
-        console.log('✅ New profile created:', newProfile);
+        console.log('✅ New profile created/updated:', newProfile);
         console.log('❌ Insert error:', insertError);
 
         if (insertError) {
-          console.error('❌ Failed to create profile:', insertError);
+          console.error('❌ Failed to create/update profile:', insertError);
           throw insertError;
         }
         
@@ -181,8 +200,9 @@ export function useUserProfile() {
       setError(err instanceof Error ? err.message : 'Failed to sync user profile');
     } finally {
       setLoading(false);
+      setActiveSyncUserId(null);
     }
-  }, [user, userId, supabase, lastSyncUserId, profileCache]);
+  }, [user, userId, supabase, lastSyncUserId, profileCache, activeSyncUserId]);
 
   useEffect(() => {
     console.log('🔄 useUserProfile effect triggered:', {
@@ -191,25 +211,29 @@ export function useUserProfile() {
       userId,
       supabaseLoading,
       isAuthenticated,
-      lastSyncUserId
+      lastSyncUserId,
+      hasAttemptedLoad
     });
     
-    // Wait for all auth dependencies to be ready
+    // Don't block the UI - allow immediate rendering with base state
     if (!isLoaded || !userId || supabaseLoading) {
-      console.log('⏳ Waiting for auth to be ready...');
-      setLoading(true);
+      console.log('⏳ Auth dependencies not ready, but not blocking UI...');
+      setLoading(false); // Don't block UI
       return;
     }
 
     // Only sync if user has changed or we haven't synced this user yet
-    if (lastSyncUserId !== userId) {
+    if (lastSyncUserId !== userId && !hasAttemptedLoad) {
       console.log('🔄 User changed or first sync, syncing profile...');
-      syncUserProfile();
-    } else {
+      // Use setTimeout to make this async and non-blocking
+      setTimeout(() => {
+        syncUserProfile();
+      }, 0);
+    } else if (lastSyncUserId === userId) {
       console.log('📋 Profile already synced for current user');
       setLoading(false);
     }
-  }, [userId, isLoaded, supabaseLoading, lastSyncUserId, syncUserProfile]);
+  }, [userId, isLoaded, supabaseLoading, lastSyncUserId, syncUserProfile, hasAttemptedLoad]);
 
   const hasRole = (role: UserRole) => {
     return profile?.role === role;
@@ -242,6 +266,7 @@ export function useUserProfile() {
     isSuperAdmin,
     isAdminOrManager,
     userId: userId,
-    refetch
+    refetch,
+    hasAttemptedLoad // Expose this for debugging
   };
 }

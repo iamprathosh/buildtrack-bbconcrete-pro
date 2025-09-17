@@ -9,6 +9,8 @@ import { SupabaseProvider } from "./providers/SupabaseProvider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import DebugPage from "./pages/DebugPage";
+import AuthDebug from "./pages/AuthDebug";
+import SimpleTest from "./pages/SimpleTest";
 
 // Authentication & User Profile
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -71,21 +73,45 @@ import BackupRecovery from "./pages/admin/BackupRecovery";
 import AdvancedSettings from "./pages/admin/AdvancedSettings";
 import AdvancedReports from "./pages/reports/AdvancedReports";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes default
+      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: (failureCount, error: any) => {
+        // Don't retry for authentication errors
+        if (error?.status === 401 || error?.status === 403) {
+          return false;
+        }
+        return failureCount < 2;
+      }
+    },
+    mutations: {
+      retry: 1
+    }
+  }
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
+          <Routes>
+            {/* Test route outside auth guard */}
+            <Route path="/test" element={<SimpleTest />} />
+          </Routes>
           <ClerkAuthGuard>
             <SupabaseProvider>
               <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Index />} />
             <Route path="/debug" element={<DebugPage />} />
+            <Route path="/auth-debug" element={<AuthDebug />} />
             
             {/* Authentication & User Profile */}
             <Route path="/profile" element={<Profile />} />

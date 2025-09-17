@@ -4,9 +4,10 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App.tsx";
 import "./index.css";
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key");
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder';
+if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
+  console.error("❌ Missing Clerk Publishable Key! Please add VITE_CLERK_PUBLISHABLE_KEY to your .env file");
+  console.log("🔧 Using placeholder key - authentication will not work but app will load");
 }
 
 const isDevelopment = import.meta.env.DEV;
@@ -17,8 +18,8 @@ const AppWithOptionalStrictMode = () => {
       publishableKey={PUBLISHABLE_KEY}
       signInUrl="/"
       signUpUrl="/"
-      afterSignInUrl="/"
-      afterSignUpUrl="/"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
     >
       <App />
     </ClerkProvider>

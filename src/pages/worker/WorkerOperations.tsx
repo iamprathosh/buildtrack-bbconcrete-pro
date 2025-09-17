@@ -68,15 +68,21 @@ export default function WorkerOperations() {
   const [isLoading, setIsLoading] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
 
-  // Fetch products with category information
+  // Fetch products with category information - optimized with caching
   const { data: products = [], isLoading: isLoadingProducts } = useQuery({
     queryKey: ['products-with-categories'],
     queryFn: async (): Promise<ProductWithCategory[]> => {
       const { data, error } = await supabase
         .from('products')
         .select(`
-          *,
-          product_categories (
+          id,
+          name,
+          sku,
+          current_stock,
+          unit_of_measure,
+          image_url,
+          mauc,
+          product_categories!inner (
             name
           )
         `)
@@ -95,22 +101,27 @@ export default function WorkerOperations() {
         image_url: product.image_url,
         mauc: product.mauc || 0
       }));
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - products don't change frequently
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
   });
 
-  // Fetch active projects
+  // Fetch active projects - optimized with caching
   const { data: projects = [] } = useQuery({
     queryKey: ['active-projects'],
     queryFn: async (): Promise<Project[]> => {
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, name, job_number, status, customer_id')
         .in('status', ['planning', 'active'])
         .order('name', { ascending: true });
 
       if (error) throw error;
       return data || [];
-    }
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes - projects change less frequently
+    refetchOnWindowFocus: false
   });
 
   // Fetch project transactions

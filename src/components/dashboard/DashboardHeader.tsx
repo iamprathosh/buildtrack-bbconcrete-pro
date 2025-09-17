@@ -37,13 +37,13 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
-  // Debounce search query to avoid too many API calls
-  const debouncedQuery = useDebounce(searchQuery, 300);
+  // Debounce search query to avoid too many API calls - increased debounce time
+  const debouncedQuery = useDebounce(searchQuery, 500);
   
-  // Use the global search hook
+  // Use the global search hook - only when actively searching
   const { data: searchResults = [], isLoading } = useGlobalSearch(
     debouncedQuery,
-    isSearchOpen && debouncedQuery.length >= 2
+    isSearchOpen && debouncedQuery.length >= 2 && Boolean(debouncedQuery.trim())
   );
 
   // Handle keyboard navigation
