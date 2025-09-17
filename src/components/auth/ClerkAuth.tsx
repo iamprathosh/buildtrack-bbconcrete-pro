@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2 } from "lucide-react";
 import { RoleValidationModal } from "./RoleValidationModal";
+import { UserProfileButton } from "./UserProfileButton";
 import { useState } from "react";
 import { UserRole } from "@/config/registrationPasswords";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -130,16 +131,8 @@ function AuthenticationScreen() {
 }
 
 export function ClerkUserButton() {
-  return (
-    <SignedIn>
-      <UserButton 
-        appearance={{
-          elements: {
-            avatarBox: "h-8 w-8",
-          }
-        }}
-        afterSignOutUrl="/"
-      />
-    </SignedIn>
-  );
+  return <UserProfileButton />;
 }
+
+// Export the standalone component as well
+export { UserProfileButton };

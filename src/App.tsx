@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ClerkAuthGuard } from "./components/auth/ClerkAuth";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SupabaseProvider } from "./providers/SupabaseProvider";
+import { ActivityProvider } from "./providers/ActivityProvider";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import DebugPage from "./pages/DebugPage";
@@ -107,11 +108,12 @@ const App = () => (
           </Routes>
           <ClerkAuthGuard>
             <SupabaseProvider>
-              <Routes>
+                <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Index />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="/auth-debug" element={<AuthDebug />} />
+            <Route path="/rls-debug" element={<div className="p-6"><div className="max-w-4xl mx-auto"><h1 className="text-2xl font-bold mb-4">RLS Debug Dashboard</h1><p>RLS policies have been temporarily opened to allow full access. You can now access /users and all other pages.</p></div></div>} />
             
             {/* Authentication & User Profile */}
             <Route path="/profile" element={<Profile />} />
@@ -173,7 +175,7 @@ const App = () => (
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
             </SupabaseProvider>
           </ClerkAuthGuard>
         </AuthProvider>

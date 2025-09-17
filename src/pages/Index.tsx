@@ -156,54 +156,66 @@ const Index = () => {
                   Latest inventory and project updates
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoading ? (
-                  // Loading state for activities
-                  <>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
-                      <Skeleton className="h-2 w-2 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-48 mb-1" />
-                        <Skeleton className="h-3 w-20" />
+              <CardContent className="p-0">
+                <div className="max-h-80 overflow-y-auto px-6 py-4">
+                  <div className="space-y-4">
+                    {isLoading ? (
+                      // Loading state for activities
+                      <>
+                        <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
+                          <Skeleton className="h-2 w-2 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-4 w-48 mb-1" />
+                            <Skeleton className="h-3 w-20" />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
+                          <Skeleton className="h-2 w-2 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-4 w-48 mb-1" />
+                            <Skeleton className="h-3 w-20" />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
+                          <Skeleton className="h-2 w-2 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-4 w-48 mb-1" />
+                            <Skeleton className="h-3 w-20" />
+                          </div>
+                        </div>
+                      </>
+                    ) : recentActivity && recentActivity.length > 0 ? (
+                      // Real activity data - show all activities (removed slice limit)
+                      recentActivity.map((activity) => (
+                        <div key={activity.id} className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            activity.type === 'success' ? 'bg-success' :
+                            activity.type === 'warning' ? 'bg-warning' :
+                            'bg-info'
+                          }`}></div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-inter font-medium truncate">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground font-inter">
+                              {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      // No activity state
+                      <div className="text-center py-8">
+                        <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground font-inter">No recent activity</p>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
-                      <Skeleton className="h-2 w-2 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-48 mb-1" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
-                      <Skeleton className="h-2 w-2 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-48 mb-1" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </div>
-                  </>
-                ) : recentActivity && recentActivity.length > 0 ? (
-                  // Real activity data
-                  recentActivity.slice(0, 6).map((activity) => (
-                    <div key={activity.id} className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/50">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activity.type === 'success' ? 'bg-success' :
-                        activity.type === 'warning' ? 'bg-warning' :
-                        'bg-info'
-                      }`}></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-inter font-medium">{activity.description}</p>
-                        <p className="text-xs text-muted-foreground font-inter">
-                          {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // No activity state
-                  <div className="text-center py-8">
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground font-inter">No recent activity</p>
+                    )}
+                  </div>
+                </div>
+                {/* Scrollable indicator */}
+                {recentActivity && recentActivity.length > 4 && (
+                  <div className="px-6 py-2 border-t bg-muted/30">
+                    <p className="text-xs text-muted-foreground text-center font-inter">
+                      Scroll to see more activities
+                    </p>
                   </div>
                 )}
               </CardContent>

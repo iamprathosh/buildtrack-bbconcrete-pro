@@ -164,9 +164,22 @@ export function useProducts() {
   // Create product mutation
   const createProduct = useMutation({
     mutationFn: async (product: ProductInsert) => {
+      // Clean up the product data before insertion - omit fields that should use defaults
+      const cleanProduct: any = { ...product };
+      
+      // If location_id is empty or null, omit it entirely to use database default
+      if (!product.location_id || product.location_id === '') {
+        delete cleanProduct.location_id;
+      }
+      
+      // If category_id is empty, omit it
+      if (!product.category_id || product.category_id === '') {
+        delete cleanProduct.category_id;
+      }
+      
       const { data, error } = await supabase
         .from('products')
-        .insert([product])
+        .insert([cleanProduct])
         .select()
         .single();
       
@@ -289,7 +302,7 @@ export function useInventoryLocations() {
         // Return fallback location if query fails (RLS/auth issues)
         return [
           { 
-            id: 'fallback-main-warehouse',
+            id: 'd8e037d4-d4de-488f-80d9-787cc5e95b82',
             name: 'Main Warehouse',
             address_line_1: '118 Route 59',
             address_line_2: null,
@@ -306,7 +319,7 @@ export function useInventoryLocations() {
       // Return actual data if query succeeds, or fallback if empty
       return data && data.length > 0 ? data : [
         { 
-          id: 'fallback-main-warehouse',
+          id: 'd8e037d4-d4de-488f-80d9-787cc5e95b82',
           name: 'Main Warehouse',
           address_line_1: '118 Route 59',
           address_line_2: null,

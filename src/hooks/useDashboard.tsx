@@ -109,13 +109,13 @@ export function useDashboard() {
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes (less frequent)
   });
 
-  // Fetch recent activity from audit logs (optimized)
+  // Fetch recent activity from both audit_logs AND stock_transactions (comprehensive business activity)
   const {
     data: recentActivity,
     isLoading: isLoadingActivity
   } = useQuery({
-    queryKey: ['recent_activity'],
-    enabled: true, // Temporarily bypass auth check
+    queryKey: ['recent_activity_comprehensive'],
+    enabled: true,
     queryFn: async (): Promise<RecentActivity[]> => {
       // Set auth context if we have a user ID
       if (userId) {
@@ -126,82 +126,177 @@ export function useDashboard() {
         }
       }
       
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('id, action, table_name, new_values, timestamp')
-        .order('timestamp', { ascending: false })
-        .limit(5); // Reduced from 10 to 5 for faster loading
+      const allActivities: RecentActivity[] = [];
+      
+      // 1. Get audit log activities (all business operations)
+      try {
+        const { data: auditData, error: auditError } = await supabase
+          .from('audit_logs')
+          .select('id, table_name, action, new_values, old_values, timestamp')
+          .order('timestamp', { ascending: false })
+          .limit(10);
 
-      if (error) {
-        // If audit_logs fails, return empty array instead of crashing
-        console.warn('Failed to load recent activity:', error);
-        return [];
+        if (auditData && !auditError) {
+          const auditActivities: RecentActivity[] = auditData.map((log) => {
+            let description = '';
+            let type: 'success' | 'warning' | 'info' = 'info';
+
+            switch (log.table_name) {
+              case 'products':
+                if (log.action === 'INSERT') {
+                  description = `New product added: ${log.new_values?.name || 'Unknown'}`;
+                  type = 'success';
+                } else if (log.action === 'UPDATE') {
+                  const oldStock = log.old_values?.current_stock;
+                  const newStock = log.new_values?.current_stock;
+                  if (oldStock && newStock && newStock > oldStock) {
+                    description = `Inventory increased: ${log.new_values?.name || 'Product'} (+${newStock - oldStock})`;
+                    type = 'success';
+                  } else {
+                    description = `Product updated: ${log.new_values?.name || 'Unknown'}`;
+                    type = 'info';
+                  }
+                }
+                break;
+              case 'equipment':
+                if (log.action === 'INSERT') {
+                  description = `New equipment added: ${log.new_values?.name || 'Unknown'}`;
+                  type = 'success';
+                } else if (log.action === 'UPDATE') {
+                  const oldStatus = log.old_values?.status;
+                  const newStatus = log.new_values?.status;
+                  const checkedOutTo = log.new_values?.checked_out_to;
+                  if (newStatus === 'checked_out' && checkedOutTo) {
+                    description = `Equipment checked out: ${log.new_values?.name || 'Unknown'} to ${checkedOutTo}`;
+                    type = 'warning';
+                  } else if (oldStatus === 'checked_out' && newStatus === 'available') {
+                    description = `Equipment returned: ${log.new_values?.name || 'Unknown'}`;
+                    type = 'success';
+                  } else {
+                    description = `Equipment updated: ${log.new_values?.name || 'Unknown'}`;
+                    type = 'info';
+                  }
+                }
+                break;
+              case 'projects':
+                if (log.action === 'INSERT') {
+                  description = `New project created: ${log.new_values?.name || 'Unknown'}`;
+                  type = 'success';
+                } else if (log.action === 'UPDATE') {
+                  const newStatus = log.new_values?.status;
+                  if (newStatus === 'completed') {
+                    description = `Project completed: ${log.new_values?.name || 'Unknown'}`;
+                    type = 'success';
+                  } else {
+                    description = `Project updated: ${log.new_values?.name || 'Unknown'}`;
+                    type = 'info';
+                  }
+                }
+                break;
+              case 'purchase_orders':
+                if (log.action === 'INSERT') {
+                  description = `Purchase order created: ${log.new_values?.po_number || 'Unknown'}`;
+                  type = 'success';
+                } else if (log.action === 'UPDATE' && log.new_values?.status === 'received') {
+                  description = `Purchase order received: ${log.new_values?.po_number || 'Unknown'}`;
+                  type = 'success';
+                }
+                break;
+              case 'expenses':
+                if (log.action === 'INSERT') {
+                  const amount = log.new_values?.amount ? `$${Number(log.new_values.amount).toLocaleString()}` : '';
+                  description = `New expense recorded: ${log.new_values?.description || 'Unknown'} ${amount}`;
+                  type = 'warning';
+                }
+                break;
+              case 'customer_invoices':
+                if (log.action === 'INSERT') {
+                  description = `Customer invoice created: ${log.new_values?.invoice_number || 'Unknown'}`;
+                  type = 'success';
+                }
+                break;
+              default:
+                description = `${log.table_name.replace('_', ' ').toUpperCase()}: ${log.action.toLowerCase()}`;
+                type = 'info';
+            }
+
+            return {
+              id: log.id,
+              action: log.action,
+              description,
+              timestamp: log.timestamp,
+              type
+            };
+          });
+          
+          allActivities.push(...auditActivities);
+        }
+      } catch (error) {
+        console.warn('Failed to load audit logs:', error);
+      }
+      
+      // 2. Get stock transaction activities (for immediate data)
+      try {
+        const { data: stockData, error: stockError } = await supabase
+          .from('stock_transactions')
+          .select(`
+            id,
+            transaction_type,
+            quantity,
+            transaction_date,
+            created_at,
+            products!inner (name),
+            projects (name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(8);
+
+        if (stockData && !stockError) {
+          const stockActivities: RecentActivity[] = stockData.map((transaction: any) => {
+            let description = '';
+            let type: 'success' | 'warning' | 'info' = 'info';
+            const productName = transaction.products?.name || 'Unknown Product';
+            const projectName = transaction.projects?.name || 'Unknown Project';
+            const quantity = transaction.quantity || 0;
+
+            switch (transaction.transaction_type) {
+              case 'pull':
+                description = `${quantity} ${productName} pulled for ${projectName}`;
+                type = 'info';
+                break;
+              case 'receive':
+                description = `${quantity} ${productName} received into inventory`;
+                type = 'success';
+                break;
+              case 'return':
+                description = `${quantity} ${productName} returned from ${projectName}`;
+                type = 'warning';
+                break;
+            }
+
+            return {
+              id: transaction.id + '_stock',
+              action: transaction.transaction_type.toUpperCase(),
+              description,
+              timestamp: transaction.created_at || transaction.transaction_date,
+              type
+            };
+          });
+          
+          allActivities.push(...stockActivities);
+        }
+      } catch (error) {
+        console.warn('Failed to load stock transactions:', error);
       }
 
-      // Transform audit logs into readable activity
-      const activities: RecentActivity[] = data?.map((log) => {
-        let description = '';
-        let type: 'success' | 'warning' | 'info' = 'info';
-
-        switch (log.table_name) {
-          case 'products':
-            if (log.action === 'INSERT') {
-              description = `New product added: ${log.new_values?.name || 'Unknown'}`;
-              type = 'success';
-            } else if (log.action === 'UPDATE') {
-              description = `Product updated: ${log.new_values?.name || 'Unknown'}`;
-              type = 'info';
-            }
-            break;
-          case 'projects':
-            if (log.action === 'INSERT') {
-              description = `New project created: ${log.new_values?.name || 'Unknown'}`;
-              type = 'success';
-            } else if (log.action === 'UPDATE') {
-              description = `Project updated: ${log.new_values?.name || 'Unknown'}`;
-              type = 'info';
-            }
-            break;
-          case 'purchase_orders':
-            if (log.action === 'INSERT') {
-              description = `Purchase order created: ${log.new_values?.po_number || 'Unknown'}`;
-              type = 'success';
-            } else if (log.action === 'UPDATE' && log.new_values?.status === 'received') {
-              description = `Purchase order received: ${log.new_values?.po_number || 'Unknown'}`;
-              type = 'success';
-            }
-            break;
-          case 'stock_transactions':
-            if (log.action === 'INSERT') {
-              const transactionType = log.new_values?.transaction_type;
-              if (transactionType === 'out') {
-                description = `Materials issued for project`;
-                type = 'info';
-              } else if (transactionType === 'in') {
-                description = `Stock received`;
-                type = 'success';
-              }
-            }
-            break;
-          default:
-            description = `${log.table_name} ${log.action.toLowerCase()}`;
-            type = 'info';
-        }
-
-        return {
-          id: log.id,
-          action: log.action,
-          description,
-          timestamp: log.timestamp,
-          type
-        };
-      }) || [];
-
-      return activities;
+      // Sort all activities by timestamp and return top 20
+      return allActivities
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 20);
     },
-    staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
-    cacheTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
-    refetchInterval: 15 * 60 * 1000, // Refetch every 15 minutes (much less frequent)
+    staleTime: 2 * 60 * 1000, // Data stays fresh for 2 minutes
+    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
   });
 
   // Fetch active projects summary

@@ -68,21 +68,26 @@ export default function AddProduct() {
     setLoading(true);
     
     try {
+      // Prepare the product data, omitting empty fields to use database defaults
+      const productData: any = {
+        sku: formData.sku,
+        name: formData.name,
+        unit_of_measure: formData.unit_of_measure,
+        min_stock_level: parseInt(formData.min_stock_level),
+        max_stock_level: parseInt(formData.max_stock_level),
+        current_stock: parseInt(formData.current_stock)
+      };
+      
+      // Only include optional fields if they have values
+      if (formData.description) productData.description = formData.description;
+      if (formData.category_id) productData.category_id = formData.category_id;
+      if (formData.supplier) productData.supplier = formData.supplier;
+      if (formData.location) productData.location = formData.location;
+      if (formData.image_url) productData.image_url = formData.image_url;
+      console.log(productData)
       const { error } = await supabase
         .from('products')
-        .insert({
-          sku: formData.sku,
-          name: formData.name,
-          description: formData.description || null,
-          category_id: formData.category_id || null,
-          unit_of_measure: formData.unit_of_measure,
-          supplier: formData.supplier || null,
-          min_stock_level: parseInt(formData.min_stock_level),
-          max_stock_level: parseInt(formData.max_stock_level),
-          current_stock: parseInt(formData.current_stock),
-          location: formData.location || null,
-          image_url: formData.image_url || null
-        });
+        .insert(productData);
 
       if (error) throw error;
 

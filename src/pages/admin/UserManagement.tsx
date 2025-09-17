@@ -14,13 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Users, Search, Plus, Filter, Edit, Trash2, UserCheck, UserX, Shield, Mail, Calendar, Phone, MoreHorizontal, Settings, Key, Ban, CheckCircle, AlertTriangle } from "lucide-react";
+import { Users, Search, Plus, Filter, Edit, Trash2, UserCheck, UserX, Shield, Mail, Calendar, Phone, MoreHorizontal, Settings, Key, Ban, CheckCircle, AlertTriangle, Briefcase, Wrench } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Database } from '@/integrations/supabase/types';
 import { RoleGuard, AdminOnlyGuard } from '@/components/auth/RoleGuard';
+import { UserActivityDisplay } from '@/components/users/UserActivityDisplay';
 
 type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 type UserRole = Database['public']['Enums']['user_role'];
@@ -109,7 +110,7 @@ const UserManagement = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({ title: "Success", description: "User created successfully" });
       setIsAddDialogOpen(false);
@@ -137,7 +138,7 @@ const UserManagement = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({ title: "Success", description: "User updated successfully" });
       setIsEditDialogOpen(false);
@@ -215,20 +216,44 @@ const UserManagement = () => {
   // Utility functions
   const getStatusBadge = (is_active: boolean) => {
     return is_active 
-      ? { variant: "default", label: "Active", icon: UserCheck, color: "text-success" }
-      : { variant: "secondary", label: "Inactive", icon: UserX, color: "text-destructive" };
+      ? { 
+          label: "Active", 
+          icon: UserCheck, 
+          colorClass: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" 
+        }
+      : { 
+          label: "Inactive", 
+          icon: UserX, 
+          colorClass: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-0" 
+        };
   };
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case "super_admin":
-        return { variant: "destructive", label: "Super Admin", icon: Shield, color: "text-destructive" };
+        return { 
+          label: "Super Admin", 
+          icon: Shield, 
+          colorClass: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-0" 
+        };
       case "project_manager":
-        return { variant: "default", label: "Project Manager", icon: Users, color: "text-info" };
+        return { 
+          label: "Manager", 
+          icon: Briefcase, 
+          colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-0" 
+        };
       case "worker":
-        return { variant: "outline", label: "Worker", icon: Users, color: "text-muted-foreground" };
+        return { 
+          label: "Worker", 
+          icon: Wrench, 
+          colorClass: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" 
+        };
       default:
-        return { variant: "secondary", label: role, icon: Users, color: "text-muted-foreground" };
+        return { 
+          label: role, 
+          icon: Users, 
+          colorClass: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-0" 
+        };
     }
   };
 
@@ -324,58 +349,66 @@ const UserManagement = () => {
         <div className="space-y-6">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="gradient-card border-0 shadow-brand">
-            <CardContent className="p-4">
+          <Card className="gradient-card border-0 shadow-brand hover:shadow-brand-lg transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-inter text-muted-foreground">Total Users</p>
-                  <p className="text-2xl font-montserrat font-bold text-foreground">
+                  <p className="text-3xl font-montserrat font-bold text-foreground">
                     {totalUsers}
                   </p>
                 </div>
-                <Users className="h-8 w-8 text-primary" />
+                <div className="p-3 rounded-full bg-primary/10">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="gradient-card border-0 shadow-brand">
-            <CardContent className="p-4">
+          <Card className="gradient-card border-0 shadow-brand hover:shadow-brand-lg transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-inter text-muted-foreground">Active Users</p>
-                  <p className="text-2xl font-montserrat font-bold text-success">
+                  <p className="text-3xl font-montserrat font-bold text-success">
                     {activeUsers}
                   </p>
                 </div>
-                <UserCheck className="h-8 w-8 text-success" />
+                <div className="p-3 rounded-full bg-success/10">
+                  <UserCheck className="h-6 w-6 text-success" />
+                </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="gradient-card border-0 shadow-brand">
-            <CardContent className="p-4">
+          <Card className="gradient-card border-0 shadow-brand hover:shadow-brand-lg transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-inter text-muted-foreground">Inactive Users</p>
-                  <p className="text-2xl font-montserrat font-bold text-destructive">
+                  <p className="text-3xl font-montserrat font-bold text-destructive">
                     {inactiveUsers}
                   </p>
                 </div>
-                <UserX className="h-8 w-8 text-destructive" />
+                <div className="p-3 rounded-full bg-destructive/10">
+                  <UserX className="h-6 w-6 text-destructive" />
+                </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="gradient-card border-0 shadow-brand">
-            <CardContent className="p-4">
+          <Card className="gradient-card border-0 shadow-brand hover:shadow-brand-lg transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-inter text-muted-foreground">Administrators</p>
-                  <p className="text-2xl font-montserrat font-bold text-warning">
+                  <p className="text-3xl font-montserrat font-bold text-red-600">
                     {adminUsers}
                   </p>
                 </div>
-                <Shield className="h-8 w-8 text-warning" />
+                <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/20">
+                  <Shield className="h-6 w-6 text-red-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -526,64 +559,72 @@ const UserManagement = () => {
                     const projectCount = projectAssignments[user.id] || 0;
                     
                     return (
-                      <TableRow key={user.id} className="hover:bg-secondary/50">
-                        <TableCell>
+                      <TableRow key={user.id} className="hover:bg-secondary/30 transition-colors">
+                        <TableCell className="py-4">
                           <div className="flex items-center space-x-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="text-xs font-inter">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="text-sm font-inter bg-primary/10 text-primary font-semibold">
                                 {getInitials(user.full_name)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-inter font-medium">{user.full_name}</p>
-                              <p className="text-sm text-muted-foreground font-inter">{user.email}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-inter font-medium text-foreground truncate">{user.full_name}</p>
+                              <p className="text-sm text-muted-foreground font-inter truncate">{user.email}</p>
                               {user.phone && (
-                                <p className="text-xs text-muted-foreground font-inter flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {user.phone}
+                                <p className="text-xs text-muted-foreground font-inter flex items-center gap-1 mt-1">
+                                  <Phone className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{user.phone}</span>
                                 </p>
                               )}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={roleBadge.variant as any}
-                            className="flex items-center gap-1 w-fit"
+                        <TableCell className="py-4">
+                          <Badge
+                            variant="secondary"
+                            className={`flex items-center gap-1 w-fit text-xs ${roleBadge.colorClass}`}
                           >
                             <roleBadge.icon className="h-3 w-3" />
                             {roleBadge.label}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-4">
                           <Badge 
-                            variant={statusBadge.variant as any}
-                            className="flex items-center gap-1 w-fit"
+                            variant="secondary"
+                            className={`flex items-center gap-1 w-fit text-xs ${statusBadge.colorClass}`}
                           >
                             <StatusIcon className="h-3 w-3" />
                             {statusBadge.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-inter">
-                          <span className="text-sm">{projectCount}</span>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs px-2 py-0.5"
+                            >
+                              {projectCount} {projectCount === 1 ? 'project' : 'projects'}
+                            </Badge>
+                          </div>
                         </TableCell>
-                        <TableCell className="font-inter">
-                          <span className="text-sm">
+                        <TableCell className="font-inter py-4">
+                          <span className="text-sm text-muted-foreground">
                             {user.updated_at ? formatDistanceToNow(new Date(user.updated_at), { addSuffix: true }) : 'Never'}
                           </span>
                         </TableCell>
-                        <TableCell className="font-inter">
-                          <span className="text-sm">
+                        <TableCell className="font-inter py-4">
+                          <span className="text-sm text-muted-foreground">
                             {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
                           </span>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-1">
                             <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => openEditDialog(user)}
                               title="Edit User"
+                              className="h-8 w-8 p-0 hover:bg-secondary"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -593,7 +634,7 @@ const UserManagement = () => {
                                   variant="ghost" 
                                   size="sm"
                                   title={user.is_active ? "Deactivate User" : "Activate User"}
-                                  className={user.is_active ? "text-warning hover:text-warning" : "text-success hover:text-success"}
+                                  className={`h-8 w-8 p-0 hover:bg-secondary ${user.is_active ? "text-warning hover:text-warning" : "text-success hover:text-success"}`}
                                 >
                                   {user.is_active ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                                 </Button>
@@ -627,6 +668,7 @@ const UserManagement = () => {
                               size="sm"
                               title="Send Email"
                               onClick={() => window.open(`mailto:${user.email}`, '_blank')}
+                              className="h-8 w-8 p-0 hover:bg-secondary text-muted-foreground hover:text-foreground"
                             >
                               <Mail className="h-4 w-4" />
                             </Button>
@@ -641,38 +683,19 @@ const UserManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* User Activity Display - Temporarily Disabled */}
         <Card className="gradient-card border-0 shadow-brand">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-montserrat">
               <Calendar className="h-5 w-5 text-primary" />
-              Recent User Activity
+              User Activity Tracking
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/30">
-                <div className="w-2 h-2 rounded-full bg-success"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-inter font-medium">Emma Davis logged in</p>
-                  <p className="text-xs text-muted-foreground font-inter">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/30">
-                <div className="w-2 h-2 rounded-full bg-info"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-inter font-medium">Mike Wilson updated user permissions</p>
-                  <p className="text-xs text-muted-foreground font-inter">4 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/30">
-                <div className="w-2 h-2 rounded-full bg-warning"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-inter font-medium">David Brown account marked as inactive</p>
-                  <p className="text-xs text-muted-foreground font-inter">1 day ago</p>
-                </div>
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              User activity tracking is temporarily disabled while we fix performance issues.
+              This feature will be re-enabled soon.
+            </p>
           </CardContent>
         </Card>
 

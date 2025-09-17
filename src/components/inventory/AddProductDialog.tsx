@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,8 @@ export function AddProductDialog({ children }: AddProductDialogProps) {
   const { data: categories } = useProductCategories();
   const { data: locations } = useInventoryLocations();
   const { generateSku, isGenerating } = useSkuGeneration();
+  
+  // Note: We rely on database default for location_id if none is selected
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
