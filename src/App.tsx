@@ -29,6 +29,7 @@ import BarcodeScanning from "./pages/worker/BarcodeScanning";
 import WorkerRequisitions from "./pages/worker/Requisitions";
 import WorkerEquipment from "./pages/worker/Equipment";
 import WorkerOperations from "./pages/worker/WorkerOperations";
+import WorkerOperationsDebug from "./components/debug/WorkerOperationsDebug";
 
 // Dashboard & Analytics
 import ReportBuilder from "./pages/reports/ReportBuilder";
@@ -113,6 +114,7 @@ const App = () => (
             <Route path="/dashboard" element={<Index />} />
             <Route path="/debug" element={<DebugPage />} />
             <Route path="/auth-debug" element={<AuthDebug />} />
+            <Route path="/worker-operations-debug" element={<WorkerOperationsDebug />} />
             <Route path="/rls-debug" element={<div className="p-6"><div className="max-w-4xl mx-auto"><h1 className="text-2xl font-bold mb-4">RLS Debug Dashboard</h1><p>RLS policies have been temporarily opened to allow full access. You can now access /users and all other pages.</p></div></div>} />
             
             {/* Authentication & User Profile */}

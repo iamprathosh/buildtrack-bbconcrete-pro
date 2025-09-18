@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -15,7 +15,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useProjectTransactions } from "@/hooks/useProjectTransactions";
+import { useDebounce } from "@/hooks/useDebounce";
 import { RoleGuard, AdminManagerGuard } from "@/components/auth/RoleGuard";
+import {
+  WorkerOperationsSkeleton,
+  ActionSelectionSkeleton,
+  ProductsGridSkeleton,
+  TransactionHistorySkeleton,
+  FilterSkeleton,
+  ProjectHeaderSkeleton
+} from "@/components/skeletons/WorkerOperationsSkeleton";
+import ProductCard from "@/components/worker/ProductCard";
+import VirtualizedProductGrid from "@/components/worker/VirtualizedProductGrid";
 import { 
   Package, 
   PackageOpen, 
@@ -54,7 +65,7 @@ interface ProductWithCategory {
 }
 
 export default function WorkerOperations() {
-  const { profile } = useUserProfile();
+  const { profile, isLoading: isProfileLoading } = useUserProfile();
   const queryClient = useQueryClient();
   
   const [currentAction, setCurrentAction] = useState<ActionType>(null);
@@ -62,14 +73,23 @@ export default function WorkerOperations() {
   const [selectedProducts, setSelectedProducts] = useState<ProductWithCategory[]>([]);
   const [quantities, setQuantities] = useState<{[key: string]: string}>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [notes, setNotes] = useState<string>("");
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+  const ITEMS_PER_PAGE = 50;
 
   // Fetch products with category information - optimized with caching
-  const { data: products = [], isLoading: isLoadingProducts } = useQuery({
+  const { 
+    data: products = [], 
+    isLoading: isLoadingProducts,
+    error: productsError,
+    isError: isProductsError 
+  } = useQuery({
     queryKey: ['products-with-categories'],
     queryFn: async (): Promise<ProductWithCategory[]> => {
       const { data, error } = await supabase
@@ -82,7 +102,7 @@ export default function WorkerOperations() {
           unit_of_measure,
           image_url,
           mauc,
-          product_categories!inner (
+          product_categories (
             name
           )
         `)
@@ -103,25 +123,38 @@ export default function WorkerOperations() {
       }));
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - products don't change frequently
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
     refetchOnWindowFocus: false,
-    refetchOnMount: false
+    refetchOnMount: false,
+    retry: 2,
+    enabled: !!profile, // Only fetch when profile is loaded
+    suspense: false, // Disable suspense to handle loading manually
+    keepPreviousData: true // Keep previous data while fetching new data
   });
 
   // Fetch active projects - optimized with caching
-  const { data: projects = [] } = useQuery({
+  const { 
+    data: projects = [],
+    isLoading: isLoadingProjects,
+    error: projectsError 
+  } = useQuery({
     queryKey: ['active-projects'],
     queryFn: async (): Promise<Project[]> => {
       const { data, error } = await supabase
         .from('projects')
         .select('id, name, job_number, status, customer_id')
         .in('status', ['planning', 'active'])
-        .order('name', { ascending: true });
+        .order('name', { ascending: true })
+        .limit(50); // Limit for performance
 
       if (error) throw error;
       return data || [];
     },
     staleTime: 10 * 60 * 1000, // 10 minutes - projects change less frequently
-    refetchOnWindowFocus: false
+    gcTime: 15 * 60 * 1000, // 15 minutes garbage collection
+    refetchOnWindowFocus: false,
+    retry: 2,
+    enabled: !!profile // Only fetch when profile is loaded
   });
 
   // Fetch project transactions
@@ -156,15 +189,16 @@ export default function WorkerOperations() {
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = debouncedSearchTerm === "" || 
+        product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        product.sku.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
       const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchTerm, selectedCategory]);
+  }, [products, debouncedSearchTerm, selectedCategory]);
 
-  const toggleProductSelection = (product: ProductWithCategory) => {
+  const toggleProductSelection = useCallback((product: ProductWithCategory) => {
     setSelectedProducts(prev => {
       const isSelected = prev.some(p => p.id === product.id);
       if (isSelected) {
@@ -177,14 +211,14 @@ export default function WorkerOperations() {
         return [...prev, product];
       }
     });
-  };
+  }, [quantities]);
 
-  const handleQuantityChange = (productId: string, value: string) => {
+  const handleQuantityChange = useCallback((productId: string, value: string) => {
     setQuantities(prev => ({
       ...prev,
       [productId]: value
     }));
-  };
+  }, []);
 
   const selectAllVisible = () => {
     const allVisible = filteredProducts.filter(p => !selectedProducts.some(sp => sp.id === p.id));
@@ -372,9 +406,49 @@ export default function WorkerOperations() {
   const isWorker = profile?.role === 'worker';
   const isManager = profile?.role === 'project_manager' || profile?.role === 'super_admin';
 
+  // Show skeleton while profile or initial products are loading
+  // Only show skeleton on initial load, not on subsequent fetches
+  if (isProfileLoading || (isLoadingProducts && products.length === 0 && !hasLoadedInitial)) {
+    return (
+      <AppLayout title="Worker Operations" subtitle="Manage inventory transactions">
+        <WorkerOperationsSkeleton />
+      </AppLayout>
+    );
+  }
+
+  // Mark as loaded when we have data
+  if (!hasLoadedInitial && products.length > 0) {
+    setHasLoadedInitial(true);
+  }
+
+  // Show error state if there are critical errors
+  if (isProductsError || projectsError) {
+    return (
+      <AppLayout title="Worker Operations" subtitle="Manage inventory transactions">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/10 relative overflow-hidden">
+          <div className="relative z-10 container mx-auto px-4 py-12">
+            <div className="text-center space-y-6">
+              <AlertCircle className="h-16 w-16 text-red-500 mx-auto" />
+              <h1 className="text-3xl font-bold text-foreground">Unable to Load Data</h1>
+              <p className="text-lg text-muted-foreground max-w-md mx-auto">
+                {isProductsError 
+                  ? "Failed to load inventory data. Please check your connection and try again." 
+                  : "Failed to load project data. Please check your connection and try again."
+                }
+              </p>
+              <Button onClick={() => window.location.reload()} className="mt-4">
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout title="Worker Operations" subtitle="Manage inventory transactions">
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/10 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/10 relative overflow-hidden animate-in fade-in duration-500">
         {/* Background decorative elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-72 h-72 bg-secondary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
@@ -392,6 +466,12 @@ export default function WorkerOperations() {
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
                 <span>Logged in as: {profile.full_name} ({profile.role.replace('_', ' ')})</span>
+                {isLoadingProducts && hasLoadedInitial && (
+                  <div className="ml-2 flex items-center gap-1 text-xs text-primary">
+                    <div className="animate-spin w-3 h-3 border border-primary border-t-transparent rounded-full"></div>
+                    <span>Refreshing...</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -536,10 +616,7 @@ export default function WorkerOperations() {
                   </CardHeader>
                   <CardContent>
                     {isLoadingTransactions ? (
-                      <div className="text-center py-8">
-                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-2"></div>
-                        <p className="text-sm text-muted-foreground">Loading transactions...</p>
-                      </div>
+                      <TransactionHistorySkeleton />
                     ) : transactions.length > 0 ? (
                       <div className="space-y-3 max-h-96 overflow-y-auto">
                         {transactions.slice(0, 20).map((transaction) => (
@@ -602,149 +679,88 @@ export default function WorkerOperations() {
               )}
 
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    type="text"
-                    placeholder="Search items..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-12"
-                  />
-                </div>
-                
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {isLoadingProducts && products.length === 0 ? (
+                <FilterSkeleton />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      type="text"
+                      placeholder="Search items..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 h-12"
+                    />
+                  </div>
+                  
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <div className="flex gap-2 justify-center md:justify-start">
-                  <Button 
-                    onClick={selectAllVisible} 
-                    variant="outline" 
-                    className="h-12 flex-1 md:flex-none"
-                    disabled={filteredProducts.length === 0}
-                  >
-                    Select All
-                  </Button>
-                  <Button 
-                    onClick={clearSelection} 
-                    variant="outline" 
-                    className="h-12 flex-1 md:flex-none"
-                    disabled={selectedProducts.length === 0}
-                  >
-                    Clear
-                  </Button>
+                  <div className="flex gap-2 justify-center md:justify-start">
+                    <Button 
+                      onClick={selectAllVisible} 
+                      variant="outline" 
+                      className="h-12 flex-1 md:flex-none"
+                      disabled={filteredProducts.length === 0}
+                    >
+                      Select All
+                    </Button>
+                    <Button 
+                      onClick={clearSelection} 
+                      variant="outline" 
+                      className="h-12 flex-1 md:flex-none"
+                      disabled={selectedProducts.length === 0}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Products Grid */}
-              {isLoadingProducts ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-muted-foreground">Loading products...</p>
-                </div>
+              {/* Products Grid - maintain min-height to prevent layout shift */}
+              <div className="min-h-[600px] mb-6" style={{ contain: 'layout' }}>
+                {isLoadingProducts ? (
+                  <ProductsGridSkeleton />
+                ) : filteredProducts.length > 20 ? (
+                <VirtualizedProductGrid
+                  products={filteredProducts}
+                  selectedProducts={selectedProducts}
+                  quantities={quantities}
+                  currentAction={currentAction}
+                  onToggleSelection={toggleProductSelection}
+                  onQuantityChange={handleQuantityChange}
+                />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
                   {filteredProducts.map((product) => {
                     const isSelected = selectedProducts.some(p => p.id === product.id);
                     return (
-                      <Card 
-                        key={product.id} 
-                        className={`cursor-pointer transition-all duration-200 ${
-                          isSelected 
-                            ? 'ring-2 ring-primary border-primary/50 bg-primary/5' 
-                            : 'hover:shadow-lg hover:border-primary/30'
-                        }`}
-                        onClick={() => toggleProductSelection(product)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <Checkbox 
-                              checked={isSelected}
-                              onChange={() => toggleProductSelection(product)}
-                            />
-                            <Badge variant="outline" className="text-xs">
-                              {product.category}
-                            </Badge>
-                          </div>
-                          
-                          <div className="text-center mb-3">
-                            {product.image_url ? (
-                              <img 
-                                src={product.image_url} 
-                                alt={product.name}
-                                className="w-12 h-12 object-cover rounded-lg mx-auto mb-2"
-                              />
-                            ) : (
-                              <div className="bg-gray-100 rounded-lg p-3 mb-2 w-12 h-12 mx-auto flex items-center justify-center">
-                                <Package className="h-6 w-6 text-gray-400" />
-                              </div>
-                            )}
-                            
-                            <h4 className="font-bold text-sm mb-1">{product.name}</h4>
-                            <p className="text-xs text-gray-600">SKU: {product.sku}</p>
-                            
-                            <div className="flex items-center justify-center gap-1 mt-2">
-                              <span className="text-sm font-medium">
-                                {product.current_stock} {product.unit_of_measure}
-                              </span>
-                              {product.current_stock < 10 && (
-                                <AlertCircle className="h-3 w-3 text-red-500" />
-                              )}
-                            </div>
-                            
-                            <div className={`text-xs px-2 py-1 rounded-full mt-1 ${
-                              product.current_stock >= 25 
-                                ? 'bg-green-100 text-green-700' 
-                                : product.current_stock >= 10 
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-red-100 text-red-700'
-                            }`}>
-                              {product.current_stock >= 25 ? '✓ Good' : 
-                               product.current_stock >= 10 ? '⚠ Low' : '⚠ Critical'}
-                            </div>
-                          </div>
-
-                          {isSelected && (
-                            <div className="border-t pt-3">
-                              <Label className="text-xs font-medium mb-1 block">
-                                Quantity ({product.unit_of_measure})
-                              </Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                max={currentAction === "pull" ? product.current_stock : undefined}
-                                value={quantities[product.id] || ""}
-                                onChange={(e) => handleQuantityChange(product.id, e.target.value)}
-                                placeholder="0"
-                                className="h-8 text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              {currentAction === "pull" && quantities[product.id] && 
-                               parseInt(quantities[product.id]) > product.current_stock && (
-                                <p className="text-xs text-red-600 mt-1">
-                                  Max: {product.current_stock}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isSelected={isSelected}
+                        currentAction={currentAction}
+                        quantity={quantities[product.id] || ''}
+                        onToggleSelection={toggleProductSelection}
+                        onQuantityChange={handleQuantityChange}
+                      />
                     );
                   })}
                 </div>
-              )}
+                )}
+              </div>
 
               {filteredProducts.length === 0 && !isLoadingProducts && (
                 <div className="text-center py-12">
