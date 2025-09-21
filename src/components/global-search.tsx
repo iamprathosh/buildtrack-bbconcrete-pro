@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/command'
 import { Loader2, Search, Package, Wrench, Folder, CheckSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { useSearch, type SearchResult } from '@/lib/search'
+import { useSearch } from '@/hooks/use-search'
+import type { SearchResult } from '@/types/search'
 import { cn } from '@/lib/utils'
 
 export interface GlobalSearchProps {

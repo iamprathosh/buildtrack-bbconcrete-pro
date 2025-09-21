@@ -29,23 +29,6 @@ export async function GET(request: Request) {
     const equipmentConditions = `name.ilike.%${q}%,equipment_number.ilike.%${q}%,category.ilike.%${q}%,model.ilike.%${q}%`
     const projectConditions = `name.ilike.%${q}%,job_number.ilike.%${q}%,description.ilike.%${q}%`
     const taskConditions = `name.ilike.%${q}%,description.ilike.%${q}%`
-    // Build search conditions for each term
-    const productConditions = searchTerms.map(term => (
-      `name.ilike.%${term}% OR description.ilike.%${term}% OR sku.ilike.%${term}%`
-    )).join(' OR ')
-
-    const equipmentConditions = searchTerms.map(term => (
-      `name.ilike.%${term}% OR equipment_number.ilike.%${term}% OR category.ilike.%${term}% OR model.ilike.%${term}%`
-    )).join(' OR ')
-
-    const projectConditions = searchTerms.map(term => (
-      `name.ilike.%${term}% OR job_number.ilike.%${term}% OR description.ilike.%${term}%`
-    )).join(' OR ')
-
-    const taskConditions = searchTerms.map(term => (
-      `name.ilike.%${term}% OR description.ilike.%${term}%`
-    )).join(' OR ')
-
     // Execute searches with proper error handling
     const [productsRes, equipmentRes, projectsRes, tasksRes] = await Promise.all([
       // Search products
@@ -53,28 +36,36 @@ export async function GET(request: Request) {
         .from('products')
         .select('id, name, description, sku, category_id, unit_of_measure')
         .filter('is_active', 'eq', true)
-        .or(productConditions)
+        .or(searchTerms.map(term => 
+          `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`
+        ).join(','))
         .limit(5),
 
       // Search equipment
       supabase
         .from('equipment')
         .select('id, name, equipment_number, category, model, status')
-        .or(equipmentConditions)
+        .or(searchTerms.map(term => 
+          `name.ilike.%${term}%,equipment_number.ilike.%${term}%,category.ilike.%${term}%,model.ilike.%${term}%`
+        ).join(','))
         .limit(5),
 
       // Search projects
       supabase
         .from('projects')
         .select('id, name, job_number, description, status')
-        .or(projectConditions)
+        .or(searchTerms.map(term => 
+          `name.ilike.%${term}%,job_number.ilike.%${term}%,description.ilike.%${term}%`
+        ).join(','))
         .limit(5),
 
       // Search tasks
       supabase
         .from('project_tasks')
         .select('id, name, description, status, priority, project_id')
-        .or(taskConditions)
+        .or(searchTerms.map(term => 
+          `name.ilike.%${term}%,description.ilike.%${term}%`
+        ).join(','))
         .limit(5),
     ])
 
