@@ -57,78 +57,47 @@ export function StockLevel() {
   const [isReorderDialogOpen, setIsReorderDialogOpen] = useState(false)
   const [reorderQuantity, setReorderQuantity] = useState('')
   const [reorderNotes, setReorderNotes] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
 
-  // Mock data - replace with actual API calls
   useEffect(() => {
-    const mockStockItems: StockItem[] = [
-      {
-        id: '1',
-        name: 'Portland Cement',
-        sku: 'CEM-001',
-        category: 'Cement',
-        currentStock: 120,
-        minLevel: 20,
-        maxLevel: 200,
-        unit: 'bags',
-        value: 12000,
-        location: 'Warehouse A',
-        supplier: 'ABC Cement Co.',
-        lastUpdated: new Date(),
-        reorderPoint: 30,
-        averageUsage: 15
-      },
-      {
-        id: '2',
-        name: 'Steel Rebar 12mm',
-        sku: 'REB-012',
-        category: 'Steel',
-        currentStock: 250,
-        minLevel: 50,
-        maxLevel: 500,
-        unit: 'pieces',
-        value: 75000,
-        location: 'Storage Yard B',
-        supplier: 'XYZ Steel Ltd.',
-        lastUpdated: new Date(),
-        reorderPoint: 75,
-        averageUsage: 25
-      },
-      {
-        id: '3',
-        name: 'Concrete Mix',
-        sku: 'CON-001',
-        category: 'Concrete',
-        currentStock: 8,
-        minLevel: 10,
-        maxLevel: 50,
-        unit: 'cubic meters',
-        value: 2400,
-        location: 'Plant Area',
-        supplier: 'Ready Mix Corp.',
-        lastUpdated: new Date(),
-        reorderPoint: 15,
-        averageUsage: 5
-      },
-      {
-        id: '4',
-        name: 'Sand - Fine',
-        sku: 'SAN-001',
-        category: 'Aggregate',
-        currentStock: 2,
-        minLevel: 5,
-        maxLevel: 25,
-        unit: 'tons',
-        value: 400,
-        location: 'Aggregate Area',
-        supplier: 'Local Quarry',
-        lastUpdated: new Date(),
-        reorderPoint: 8,
-        averageUsage: 3
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (categoryFilter !== 'all') params.set('category', categoryFilter)
+        if (statusFilter !== 'all') params.set('status', statusFilter)
+        if (searchTerm) params.set('search', searchTerm)
+        const res = await fetch(`/api/operations/stock-levels?${params.toString()}`)
+        if (!res.ok) throw new Error('Failed to load stock levels')
+        const json = await res.json()
+        const items: StockItem[] = (json.items || []).map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          sku: it.sku,
+          category: it.category,
+          currentStock: it.currentStock,
+          minLevel: it.minLevel,
+          maxLevel: it.maxLevel,
+          unit: it.unit,
+          value: it.value,
+          location: it.location,
+          supplier: it.supplier,
+          lastUpdated: it.lastUpdated ? new Date(it.lastUpdated) : new Date(),
+          reorderPoint: it.reorderPoint,
+          averageUsage: it.averageUsage || 0,
+        }))
+        setStockItems(items)
+        setFilteredItems(items)
+        setCategories(json.categories || [])
+      } catch (e) {
+        setStockItems([])
+        setFilteredItems([])
+      } finally {
+        setIsLoading(false)
       }
-    ]
-    setStockItems(mockStockItems)
-    setFilteredItems(mockStockItems)
-  }, [])
+    }
+    load()
+  }, [categoryFilter, statusFilter, searchTerm])
 
   // Filter stock items
   useEffect(() => {
@@ -198,13 +167,54 @@ export function StockLevel() {
 
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      const res = await fetch('/api/operations/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: selectedItem.id,
+          quantity: parseInt(reorderQuantity, 10),
+          notes: reorderNotes || undefined
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to submit reorder')
+      }
+
       toast({
         title: 'Reorder Request Submitted',
         description: `Request for ${reorderQuantity} ${selectedItem.unit} of ${selectedItem.name} has been submitted.`
       })
+      
+      // Refresh stock levels
+      const params = new URLSearchParams()
+      if (categoryFilter !== 'all') params.set('category', categoryFilter)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (searchTerm) params.set('search', searchTerm)
+      const stockRes = await fetch(`/api/operations/stock-levels?${params.toString()}`)
+      if (stockRes.ok) {
+        const json = await stockRes.json()
+        const items = (json.items || []).map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          sku: it.sku,
+          category: it.category,
+          currentStock: it.currentStock,
+          minLevel: it.minLevel,
+          maxLevel: it.maxLevel,
+          unit: it.unit,
+          value: it.value,
+          location: it.location,
+          supplier: it.supplier,
+          lastUpdated: it.lastUpdated ? new Date(it.lastUpdated) : new Date(),
+          reorderPoint: it.reorderPoint,
+          averageUsage: it.averageUsage || 0,
+        }))
+        setStockItems(items)
+        setFilteredItems(items)
+        setCategories(json.categories || [])
+      }
       
       setIsReorderDialogOpen(false)
       setReorderQuantity('')
@@ -214,7 +224,7 @@ export function StockLevel() {
     } catch (error) {
       toast({
         title: 'Reorder Failed',
-        description: 'There was an error submitting your reorder request.',
+        description: error instanceof Error ? error.message : 'There was an error submitting your reorder request.',
         variant: 'destructive'
       })
     } finally {
@@ -320,7 +330,7 @@ export function StockLevel() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {getCategories().map(category => (
+                {categories.map(category => (
                   <SelectItem key={category} value={category}>
                     {category}
                   </SelectItem>

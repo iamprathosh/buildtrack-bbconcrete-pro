@@ -178,15 +178,15 @@ export const supabase = dbManager.getClient()
 
 // Server-side client factory
 export function createServerClient(token?: string): SupabaseClient<Database> {
-  const client = createClient<Database>(supabaseUrl, supabaseAnonKey)
-  
-  if (token) {
-    // Set token for server-side operations
-    client.auth.setSession({
-      access_token: token,
-      refresh_token: ''
-    })
-  }
+  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    headers: token ? {
+      Authorization: `Bearer ${token}`
+    } : undefined
+  })
   
   return client
 }

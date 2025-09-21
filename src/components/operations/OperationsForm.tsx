@@ -54,7 +54,7 @@ interface Project {
   manager: string
 }
 
-export function OperationsForm() {
+export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | 'OUT' | 'RETURN' }) {
   const { user } = useUser()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -66,12 +66,17 @@ export function OperationsForm() {
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
-      type: 'OUT',
+      type: initialType,
       quantity: 1,
       notes: '',
       location: ''
     }
   })
+
+  // Keep form type in sync when initialType changes (e.g., when opening from different cards)
+  useEffect(() => {
+    form.setValue('type', initialType)
+  }, [initialType])
 
   const watchType = form.watch('type')
   const watchQuantity = form.watch('quantity')

@@ -38,16 +38,17 @@ import {
   ChevronUp,
   ArrowUpDown
 } from 'lucide-react'
-import { User } from './UsersView'
+import { UserWithRelations } from './UsersView'
+import { ProjectAssignmentsTable } from './ProjectAssignmentsTable'
 
 interface UsersTableProps {
-  users: User[]
+  users: UserWithRelations[]
   selectedUsers: string[]
   onSelectedUsersChange: (selected: string[]) => void
-  onUserUpdate: (userId: string, updates: Partial<User>) => void
+  onUserUpdate: (userId: string, updates: Partial<UserWithRelations>) => void
 }
 
-type SortField = 'name' | 'email' | 'role' | 'department' | 'status' | 'lastLogin' | 'joinDate'
+type SortField = 'name' | 'email' | 'role' | 'department' | 'status' | 'last_login' | 'hire_date'
 type SortOrder = 'asc' | 'desc'
 
 export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUserUpdate }: UsersTableProps) {
@@ -89,13 +90,13 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
         aValue = a.status
         bValue = b.status
         break
-      case 'lastLogin':
-        aValue = a.lastLogin ? a.lastLogin.getTime() : 0
-        bValue = b.lastLogin ? b.lastLogin.getTime() : 0
+      case 'last_login':
+        aValue = a.last_login ? new Date(a.last_login).getTime() : 0
+        bValue = b.last_login ? new Date(b.last_login).getTime() : 0
         break
-      case 'joinDate':
-        aValue = a.joinDate.getTime()
-        bValue = b.joinDate.getTime()
+      case 'hire_date':
+        aValue = a.hire_date ? new Date(a.hire_date).getTime() : 0
+        bValue = b.hire_date ? new Date(b.hire_date).getTime() : 0
         break
       default:
         aValue = a.firstName
@@ -130,7 +131,7 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
     }
   }
 
-  const handleStatusChange = async (userId: string, newStatus: User['status']) => {
+const handleStatusChange = async (userId: string, isActive: boolean) => {
     setIsUpdating(userId)
     try {
       const response = await fetch(`/api/users/${userId}`, {
@@ -139,14 +140,12 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          action: 'update_status',
-          status: newStatus,
-          oldStatus: users.find(u => u.id === userId)?.status
+          is_active: isActive
         })
       })
 
       if (response.ok) {
-        onUserUpdate(userId, { status: newStatus })
+        onUserUpdate(userId, { is_active: isActive })
       }
     } catch (error) {
       console.error('Error updating status:', error)
@@ -303,62 +302,79 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{user.firstName} {user.lastName}</div>
+                        <div className="font-medium">{user.full_name}</div>
                         <div className="text-sm text-muted-foreground flex items-center space-x-1">
                           <Mail className="h-3 w-3" />
                           <span>{user.email}</span>
                         </div>
-                        {user.phone && (
-                          <div className="text-sm text-muted-foreground flex items-center space-x-1">
-                            <Phone className="h-3 w-3" />
-                            <span>{user.phone}</span>
-                          </div>
-                        )}
+                        <div className="text-sm text-muted-foreground flex flex-col gap-1">
+                          {user.phone && (
+                            <div className="flex items-center space-x-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{user.phone}</span>
+                              {user.phone_extension && (
+                                <span>ext. {user.phone_extension}</span>
+                              )}
+                            </div>
+                          )}
+                          {user.position && (
+                            <div className="text-xs">{user.position}</div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-2">
-                      {getRoleIcon(user.role)}
-                      <Badge variant="outline" className="capitalize">
-                        {user.role}
-                      </Badge>
+                    <div className="flex flex-col items-start gap-1">
+                      <div className="flex items-center space-x-2">
+                        {getRoleIcon(user.role)}
+                        <Badge variant="outline" className="capitalize">
+                          {user.role.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      {user.department?.name && (
+                        <div className="text-xs text-muted-foreground">
+                          {user.department.name}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{user.department}</div>
-                      <div className="text-sm text-muted-foreground">{user.position}</div>
+                      <div className="font-medium">
+                        {user.reports_to ? user.reports_to.full_name : '-'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Reports to
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={user.status}
-                      onValueChange={(value: User['status']) => handleStatusChange(user.id, value)}
+                      value={user.is_active ? 'active' : 'inactive'}
+                      onValueChange={(value: string) => handleStatusChange(user.id, value === 'active')}
                       disabled={isUpdating === user.id}
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue>
-                          <Badge variant="secondary" className={getStatusColor(user.status)}>
-                            {user.status}
+                          <Badge variant="secondary" className={user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                            {user.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {user.lastLogin ? (
+                      {user.last_login ? (
                         <>
-                          <div>{format(user.lastLogin, 'MMM dd, yyyy')}</div>
+                          <div>{format(new Date(user.last_login), 'MMM dd, yyyy')}</div>
                           <div className="text-muted-foreground">
-                            {format(user.lastLogin, 'HH:mm')}
+                            {format(new Date(user.last_login), 'HH:mm')}
                           </div>
                         </>
                       ) : (
@@ -368,9 +384,13 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div>{format(user.joinDate, 'MMM dd, yyyy')}</div>
+                      {user.hire_date ? (
+                        <div>{format(new Date(user.hire_date), 'MMM dd, yyyy')}</div>
+                      ) : (
+                        <span className="text-muted-foreground">Not set</span>
+                      )}
                       <div className="text-muted-foreground">
-                        {user.invitedBy && `by ${user.invitedBy}`}
+                        Started
                       </div>
                     </div>
                   </TableCell>
@@ -415,6 +435,16 @@ export function UsersTable({ users, selectedUsers, onSelectedUsersChange, onUser
             </TableBody>
           </Table>
         </div>
+
+        {/* Project Assignments */}
+        {users.map((user) => (
+          <div key={`assignments-${user.id}`} className="mt-4">
+            <ProjectAssignmentsTable
+              user={user}
+              onAssignmentUpdate={() => onUserUpdate(user.id, {})}
+            />
+          </div>
+        ))}
 
         {users.length === 0 && (
           <div className="flex items-center justify-center py-10">

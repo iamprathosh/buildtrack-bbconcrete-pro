@@ -9,14 +9,110 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      departments: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          manager_id: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          manager_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          manager_id?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      project_assignments: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          role: 'project_manager' | 'supervisor' | 'worker' | 'consultant'
+          status: 'active' | 'pending' | 'completed' | 'removed'
+          assigned_at: string
+          assigned_by: string | null
+          start_date: string | null
+          end_date: string | null
+          hours_allocated: number | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          role: 'project_manager' | 'supervisor' | 'worker' | 'consultant'
+          status?: 'active' | 'pending' | 'completed' | 'removed'
+          assigned_at?: string
+          assigned_by?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          hours_allocated?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          role?: 'project_manager' | 'supervisor' | 'worker' | 'consultant'
+          status?: 'active' | 'pending' | 'completed' | 'removed'
+          assigned_at?: string
+          assigned_by?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          hours_allocated?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       user_profiles: {
         Row: {
           id: string
           email: string
           full_name: string
           phone: string | null
+          phone_extension: string | null
+          emergency_contact: string | null
+          department_id: string | null
+          position: string | null
+          reports_to_id: string | null
+          hire_date: string | null
           role: 'super_admin' | 'project_manager' | 'worker'
           is_active: boolean
+          last_login: string | null
+          preferences: Json
+          permissions: Json
+          created_at: string
+          updated_at: string
+          id: string
+          email: string
+          full_name: string
+          phone: string | null
+          role: 'super_admin' | 'project_manager' | 'worker'
+          is_active: boolean
+          last_login: string | null
+          preferences: Json
+          permissions: Json
           created_at: string
           updated_at: string
         }
@@ -25,8 +121,17 @@ export type Database = {
           email: string
           full_name: string
           phone?: string | null
+          phone_extension?: string | null
+          emergency_contact?: string | null
+          department_id?: string | null
+          position?: string | null
+          reports_to_id?: string | null
+          hire_date?: string | null
           role?: 'super_admin' | 'project_manager' | 'worker'
           is_active?: boolean
+          last_login?: string | null
+          preferences?: Json
+          permissions?: Json
           created_at?: string
           updated_at?: string
         }
@@ -35,8 +140,17 @@ export type Database = {
           email?: string
           full_name?: string
           phone?: string | null
+          phone_extension?: string | null
+          emergency_contact?: string | null
+          department_id?: string | null
+          position?: string | null
+          reports_to_id?: string | null
+          hire_date?: string | null
           role?: 'super_admin' | 'project_manager' | 'worker'
           is_active?: boolean
+          last_login?: string | null
+          preferences?: Json
+          permissions?: Json
           created_at?: string
           updated_at?: string
         }
@@ -485,6 +599,20 @@ export type Database = {
 }
 
 // Utility types for easier use
+export type Department = Database['public']['Tables']['departments']['Row']
+export type ProjectAssignment = Database['public']['Tables']['project_assignments']['Row']
+
+// Insert types for forms
+export type DepartmentInsert = Database['public']['Tables']['departments']['Insert']
+export type ProjectAssignmentInsert = Database['public']['Tables']['project_assignments']['Insert']
+
+// Update types for forms
+export type DepartmentUpdate = Database['public']['Tables']['departments']['Update']
+export type ProjectAssignmentUpdate = Database['public']['Tables']['project_assignments']['Update']
+
+// Assignment role type
+export type ProjectAssignmentRole = ProjectAssignment['role']
+export type ProjectAssignmentStatus = ProjectAssignment['status']
 export type UserProfile = Database['public']['Tables']['user_profiles']['Row']
 export type Customer = Database['public']['Tables']['customers']['Row']
 export type Project = Database['public']['Tables']['projects']['Row']

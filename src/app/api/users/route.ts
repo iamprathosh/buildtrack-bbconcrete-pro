@@ -1,28 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/database'
 import { auth } from '@clerk/nextjs/server'
-import { supabase } from '@/lib/supabase'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { UserProfile } from '@/types/database'
 
 // Validation schemas
 const userCreateSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  full_name: z.string().min(1, 'Full name is required'),
   email: z.string().email('Invalid email format'),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'manager', 'supervisor', 'worker', 'contractor']),
-  department: z.string().min(1, 'Department is required'),
-  position: z.string().min(1, 'Position is required'),
-  permissions: z.object({
-    projects: z.enum(['read', 'write', 'admin', 'none']),
-    inventory: z.enum(['read', 'write', 'admin', 'none']),
-    procurement: z.enum(['read', 'write', 'admin', 'none']),
-    reports: z.enum(['read', 'write', 'admin', 'none']),
-    users: z.enum(['read', 'write', 'admin', 'none']),
-    settings: z.enum(['read', 'write', 'admin', 'none'])
-  }),
-  projects: z.array(z.string()).default([]),
-  notes: z.string().optional(),
-  tags: z.array(z.string()).default([])
+  phone_extension: z.string().optional(),
+  emergency_contact: z.string().optional(),
+  role: z.enum(['super_admin', 'project_manager', 'worker']),
+  department_id: z.string().uuid().optional(),
+  position: z.string().optional(),
+  reports_to_id: z.string().uuid().optional(),
+  hire_date: z.string().datetime().optional(),
+  permissions: z.record(z.string(), z.string()).optional(),
+  is_active: z.boolean().default(true)
 })
 
 export async function GET(request: NextRequest) {
@@ -38,34 +34,17 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role') || 'all'
     const department = searchParams.get('department') || 'all'
     const status = searchParams.get('status') || 'all'
-    const permissions = searchParams.get('permissions') || 'all'
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
     const includeStats = searchParams.get('includeStats') === 'true'
 
+    const db = createServerClient()
+
     // Build query
-    let query = supabase
-      .from('users')
+    let query = db
+      .from('user_profiles')
       .select(`
-        id,
-        first_name,
-        last_name,
-        email,
-        phone,
-        avatar,
-        role,
-        status,
-        department,
-        position,
-        permissions,
-        projects,
-        last_login,
-        join_date,
-        invited_by,
-        notes,
-        tags,
-        created_at,
-        updated_at
+        *,
+        department:departments(*),
+        reports_to:user_profiles!reports_to_id(*)
       `)
 
     // Apply filters
@@ -74,34 +53,29 @@ export async function GET(request: NextRequest) {
     }
     
     if (department !== 'all') {
-      query = query.eq('department', department)
+      query = query.eq('department_id', department)
     }
     
-    if (status !== 'all') {
-      query = query.eq('status', status)
+    if (status === 'active') {
+      query = query.eq('is_active', true)
+    } else if (status === 'inactive') {
+      query = query.eq('is_active', false)
     }
 
     // Search functionality
     if (search) {
       query = query.or(
-        `first_name.ilike.%${search}%,` +
-        `last_name.ilike.%${search}%,` +
+        `full_name.ilike.%${search}%,` +
         `email.ilike.%${search}%,` +
-        `department.ilike.%${search}%,` +
-        `position.ilike.%${search}%,` +
-        `notes.ilike.%${search}%`
+        `phone.ilike.%${search}%,` +
+        `position.ilike.%${search}%`
       )
     }
 
-    // Add pagination
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    query = query.range(from, to)
-
     // Order by name
-    query = query.order('first_name', { ascending: true })
+    query = query.order('full_name', { ascending: true })
 
-    const { data: users, error, count } = await query
+    const { data: users, error } = await query
 
     if (error) {
       console.error('Database error:', error)
@@ -111,35 +85,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Transform data to match frontend interface
-    const transformedUsers = users?.map(user => ({
-      id: user.id,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      email: user.email,
-      phone: user.phone,
-      avatar: user.avatar,
-      role: user.role,
-      status: user.status,
-      department: user.department,
-      position: user.position,
-      permissions: user.permissions,
-      projects: user.projects || [],
-      lastLogin: user.last_login ? new Date(user.last_login) : undefined,
-      joinDate: new Date(user.join_date),
-      invitedBy: user.invited_by,
-      notes: user.notes || '',
-      tags: user.tags || [],
-      addedDate: new Date(user.created_at),
-      lastUpdated: new Date(user.updated_at)
-    })) || []
+    // Transform data
+    const userProfiles = (users || []) as UserProfile[]
 
     let stats = null
     if (includeStats) {
       // Calculate statistics
-      const { data: allUsers } = await supabase
-        .from('users')
-        .select('role, status, last_login, department')
+      const { data: allUsers } = await db
+        .from('user_profiles')
+        .select('role, is_active, last_login, department_id')
       
       if (allUsers) {
         const now = new Date()
@@ -147,25 +101,17 @@ export async function GET(request: NextRequest) {
         
         stats = {
           totalUsers: allUsers.length,
-          activeUsers: allUsers.filter(u => u.status === 'active').length,
-          pendingUsers: allUsers.filter(u => u.status === 'pending').length,
-          adminUsers: allUsers.filter(u => u.role === 'admin').length,
+          activeUsers: allUsers.filter(u => u.is_active).length,
+          inactiveUsers: allUsers.filter(u => !u.is_active).length,
           recentLogins: allUsers.filter(u => 
             u.last_login && new Date(u.last_login) > dayAgo
-          ).length,
-          departments: [...new Set(allUsers.map(u => u.department))].length
+          ).length
         }
       }
     }
 
     return NextResponse.json({ 
-      users: transformedUsers,
-      pagination: {
-        page,
-        limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
-      },
+      users: userProfiles,
       stats
     })
 
@@ -191,9 +137,11 @@ export async function POST(request: NextRequest) {
     // Validate input
     const validatedData = userCreateSchema.parse(body)
 
+    const db = createServerClient()
+    
     // Check if user with email already exists
-    const { data: existingUser } = await supabase
-      .from('users')
+    const { data: existingUser } = await db
+      .from('user_profiles')
       .select('id')
       .eq('email', validatedData.email)
       .single()
@@ -205,31 +153,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get current user info for invited_by
-    const { data: currentUser } = await supabase
-      .from('users')
-      .select('first_name, last_name')
-      .eq('id', userId)
-      .single()
-
     // Create new user
-    const { data: newUser, error } = await supabase
-      .from('users')
+    const { data: newUser, error } = await db
+      .from('user_profiles')
       .insert({
-        first_name: validatedData.firstName,
-        last_name: validatedData.lastName,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        role: validatedData.role,
-        status: 'pending', // New users start as pending
-        department: validatedData.department,
-        position: validatedData.position,
-        permissions: validatedData.permissions,
-        projects: validatedData.projects,
-        join_date: new Date().toISOString(),
-        invited_by: currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'System',
-        notes: validatedData.notes || '',
-        tags: validatedData.tags
+        ...validatedData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .select()
       .single()
@@ -242,30 +172,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Transform response
-    const transformedUser = {
-      id: newUser.id,
-      firstName: newUser.first_name,
-      lastName: newUser.last_name,
-      email: newUser.email,
-      phone: newUser.phone,
-      avatar: newUser.avatar,
-      role: newUser.role,
-      status: newUser.status,
-      department: newUser.department,
-      position: newUser.position,
-      permissions: newUser.permissions,
-      projects: newUser.projects || [],
-      lastLogin: newUser.last_login ? new Date(newUser.last_login) : undefined,
-      joinDate: new Date(newUser.join_date),
-      invitedBy: newUser.invited_by,
-      notes: newUser.notes || '',
-      tags: newUser.tags || [],
-      addedDate: new Date(newUser.created_at),
-      lastUpdated: new Date(newUser.updated_at)
-    }
-
-    return NextResponse.json({ user: transformedUser }, { status: 201 })
+    revalidatePath('/users')
+    return NextResponse.json({ user: newUser }, { status: 201 })
 
   } catch (error) {
     if (error instanceof z.ZodError) {

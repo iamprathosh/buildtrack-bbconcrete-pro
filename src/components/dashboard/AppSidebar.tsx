@@ -53,13 +53,11 @@ const navigationItems = {
     { name: 'Dashboard', href: '/', icon: Home, badge: null },
   ],
   worker: [
-    { name: 'Operations', href: '/worker/operations', icon: PackageOpen, badge: null },
     { name: 'Inventory', href: '/worker/inventory', icon: Package, badge: null },
     { name: 'Projects', href: '/worker/projects', icon: Building2, badge: null },
     { name: 'Equipment', href: '/worker/equipment', icon: Wrench, badge: null },
   ],
   manager: [
-    { name: 'Operations', href: '/operations', icon: PackageOpen, badge: null },
     { name: 'Inventory', href: '/inventory', icon: Package, badge: null },
     { name: 'Projects', href: '/projects', icon: Building2, badge: null },
     { name: 'Reports', href: '/reports', icon: BarChart3, badge: null },
@@ -68,7 +66,6 @@ const navigationItems = {
     { name: 'Equipment', href: '/equipment', icon: Wrench, badge: null },
   ],
   admin: [
-    { name: 'Operations', href: '/operations', icon: PackageOpen, badge: null },
     { name: 'Inventory', href: '/inventory', icon: Package, badge: null },
     { name: 'Projects', href: '/projects', icon: Building2, badge: null },
     { name: 'Reports', href: '/reports', icon: BarChart3, badge: null },
