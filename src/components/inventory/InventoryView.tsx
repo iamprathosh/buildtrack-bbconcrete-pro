@@ -10,6 +10,7 @@ import { InventoryTable } from './InventoryTable'
 import { InventoryFilters } from './InventoryFilters'
 import { AddItemDialog } from './AddItemDialog'
 import { ProductDetailsModal } from './ProductDetailsModal'
+import { OperationsCards } from './OperationsCards'
 import { useUser } from '@clerk/nextjs'
 import { useProducts, UseProductsOptions } from '@/hooks/useProducts'
 import { ProductWithDetails } from '@/services/ProductService'
@@ -284,6 +285,13 @@ export function InventoryView() {
             Export
           </Button>
         </div>
+      </div>
+
+      {/* Operations Quick Actions */}
+      <div className="mt-2">
+        {/* Three operations cards: IN, OUT, RETURN */}
+        {/* These open the OperationsForm preconfigured */}
+        <OperationsCards />
       </div>
 
       {/* Stats Cards */}

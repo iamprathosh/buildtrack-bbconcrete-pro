@@ -27,34 +27,6 @@ import {
 } from 'lucide-react'
 
 export interface Equipment {
-  id: string
-  name: string
-  equipment_number: string
-  category: string | null
-  model: string | null
-  serial_number: string | null
-  status: 'available' | 'checked_out' | 'maintenance' | 'retired'
-  location: string | null
-  checked_out_to: string | null
-  checked_out_date: string | null
-  purchase_cost: number | null
-  current_value: number | null
-  created_at: string
-  updated_at: string
-}
-
-export interface EquipmentFilters {
-  search: string
-  type: string
-  category: string
-  status: string
-  condition: string
-  location: string
-  assignedTo: string
-  maintenanceStatus: string
-}
-
-export interface EquipmentStats {
   totalEquipment: number
   availableEquipment: number
   inUseEquipment: number
@@ -408,47 +380,49 @@ export function EquipmentView() {
             </div>
           ) : (
             <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 w-full max-w-full">
-              {equipment.map((item) => (
-                <Card key={item.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg">{item.name}</CardTitle>
-                        <CardDescription>
-                          {item.equipment_number} • {item.model || '-'}
-                        </CardDescription>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Current Value</p>
-                        <p className="text-lg font-bold">{formatCurrency(item.current_value || 0)}</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Purchase Cost</p>
-                          <p className="font-medium">{formatCurrency(item.purchase_cost || 0)}</p>
+              {equipment.map((item) => {
+                return (
+                  <Card key={item.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg">{item.name}</CardTitle>
+                          <CardDescription>
+                            {item.equipment_number} • {item.model || '-'}
+                          </CardDescription>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Depreciation</p>
-                          <p className="font-medium">
-                            {item.current_value && item.purchase_cost
-                              ? `${Math.round((1 - item.current_value / item.purchase_cost) * 100)}%`
-                              : '-'}
-                          </p>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Current Value</p>
+                          <p className="text-lg font-bold">{formatCurrency(item.current_value || 0)}</p>
                         </div>
                       </div>
-                      
-                      <div>
-                        <p className="text-muted-foreground mb-2">Status</p>
-                        {statusBadge(item.status)}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Purchase Cost</p>
+                            <p className="font-medium">{formatCurrency(item.purchase_cost || 0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Depreciation</p>
+                            <p className="font-medium">
+                              {item.current_value && item.purchase_cost
+                                ? `${Math.round((1 - item.current_value / item.purchase_cost) * 100)}%`
+                                : '-'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <p className="text-muted-foreground mb-2">Status</p>
+                          {statusBadge(item.status)}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              })}
             </div>
           )}
         </TabsContent>

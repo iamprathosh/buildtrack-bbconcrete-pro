@@ -61,67 +61,44 @@ export function TransactionHistory() {
   })
   const [isLoading, setIsLoading] = useState(false)
 
-  // Mock data - replace with actual API calls
   useEffect(() => {
-    const mockTransactions: Transaction[] = [
-      {
-        id: '1',
-        type: 'OUT',
-        product: 'Portland Cement',
-        sku: 'CEM-001',
-        quantity: 20,
-        unit: 'bags',
-        project: 'Residential Complex A',
-        user: 'John Doe',
-        timestamp: new Date('2024-01-15T10:30:00'),
-        status: 'completed',
-        notes: 'For foundation work',
-        location: 'Site A - Storage Area 1'
-      },
-      {
-        id: '2',
-        type: 'IN',
-        product: 'Steel Rebar 12mm',
-        sku: 'REB-012',
-        quantity: 100,
-        unit: 'pieces',
-        project: 'Bridge Construction',
-        user: 'Jane Smith',
-        timestamp: new Date('2024-01-15T14:45:00'),
-        status: 'completed',
-        notes: 'New delivery from supplier',
-        location: 'Warehouse B'
-      },
-      {
-        id: '3',
-        type: 'RETURN',
-        product: 'Concrete Mix',
-        sku: 'CON-001',
-        quantity: 5,
-        unit: 'cubic meters',
-        project: 'Office Building B',
-        user: 'Mike Johnson',
-        timestamp: new Date('2024-01-14T16:20:00'),
-        status: 'completed',
-        notes: 'Excess material returned'
-      },
-      {
-        id: '4',
-        type: 'OUT',
-        product: 'Sand - Fine',
-        sku: 'SAN-001',
-        quantity: 50,
-        unit: 'tons',
-        project: 'Residential Complex A',
-        user: 'John Doe',
-        timestamp: new Date('2024-01-14T09:15:00'),
-        status: 'pending',
-        notes: 'Awaiting transport'
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (typeFilter !== 'all') params.set('type', typeFilter)
+        if (dateRange.from) params.set('startDate', dateRange.from.toISOString())
+        if (dateRange.to) params.set('endDate', dateRange.to.toISOString())
+        if (searchTerm) params.set('search', searchTerm)
+        const res = await fetch(`/api/operations/transactions?${params.toString()}`)
+        if (!res.ok) throw new Error('Failed to load transactions')
+        const json = await res.json()
+        const txs: Transaction[] = (json.transactions || []).map((t: any) => ({
+          id: t.id,
+          type: (t.type || 'IN') as 'IN' | 'OUT' | 'RETURN',
+          product: t.product || 'Unknown',
+          sku: t.sku || 'N/A',
+          quantity: t.quantity || 0,
+          unit: t.unit || 'units',
+          project: t.project || 'No Project',
+          user: t.user || 'Unknown',
+          timestamp: t.timestamp ? new Date(t.timestamp) : new Date(),
+          status: 'completed',
+          notes: t.notes,
+        }))
+        setTransactions(txs)
+        setFilteredTransactions(txs)
+      } catch (e) {
+        // keep UI usable even if request fails
+        setTransactions([])
+        setFilteredTransactions([])
+      } finally {
+        setIsLoading(false)
       }
-    ]
-    setTransactions(mockTransactions)
-    setFilteredTransactions(mockTransactions)
-  }, [])
+    }
+    load()
+    // re-load when filters change
+  }, [typeFilter, dateRange.from, dateRange.to, searchTerm])
 
   // Filter transactions based on search and filters
   useEffect(() => {

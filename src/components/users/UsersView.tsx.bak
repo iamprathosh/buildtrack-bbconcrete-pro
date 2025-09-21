@@ -143,4 +143,6 @@ export function UsersView() {
       </Card>
     </div>
   )
+})
+  )
 }

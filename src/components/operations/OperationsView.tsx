@@ -34,39 +34,46 @@ export function OperationsView() {
   const [activeTab, setActiveTab] = useState('new-transaction')
   const [recentTransactions, setRecentTransactions] = useState<StockMovement[]>([])
   const [stockAlerts, setStockAlerts] = useState<{product: string; currentStock: number; minLevel: number}[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
-  // Mock data - replace with actual API calls
   useEffect(() => {
-    // Simulate API call for recent transactions
-    const mockTransactions: StockMovement[] = [
-      {
-        id: '1',
-        type: 'OUT',
-        product: 'Portland Cement - 50kg',
-        quantity: 20,
-        project: 'Residential Complex A',
-        timestamp: new Date(),
-        user: 'John Doe',
-        status: 'completed'
-      },
-      {
-        id: '2',
-        type: 'IN',
-        product: 'Steel Rebar - 12mm',
-        quantity: 100,
-        project: 'Bridge Construction',
-        timestamp: new Date(Date.now() - 3600000),
-        user: 'Jane Smith',
-        status: 'completed'
-      }
-    ]
-    setRecentTransactions(mockTransactions)
+    const loadData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Fetch recent transactions
+        const txRes = await fetch('/api/operations/transactions')
+        if (!txRes.ok) throw new Error('Failed to load transactions')
+        const txJson = await txRes.json()
+        const txs = (txJson.transactions || []).map((t: any) => ({
+          id: t.id,
+          type: (t.type || 'IN') as 'IN' | 'OUT' | 'RETURN',
+          product: t.product || 'Unknown',
+          quantity: t.quantity || 0,
+          project: t.project || 'No Project',
+          timestamp: t.timestamp ? new Date(t.timestamp) : new Date(),
+          user: t.user || 'Unknown',
+          status: 'completed' as const,
+        })) as StockMovement[]
+        setRecentTransactions(txs)
 
-    // Mock stock alerts
-    setStockAlerts([
-      { product: 'Concrete Mix', currentStock: 5, minLevel: 10 },
-      { product: 'Sand - Fine', currentStock: 2, minLevel: 5 }
-    ])
+        // Fetch stock levels to derive alerts
+        const stockRes = await fetch('/api/operations/stock-levels')
+        if (!stockRes.ok) throw new Error('Failed to load stock levels')
+        const stockJson = await stockRes.json()
+        const alerts = (stockJson.items || [])
+          .filter((it: any) => typeof it.currentStock === 'number' && typeof it.minLevel === 'number' && it.currentStock <= it.minLevel)
+          .slice(0, 5)
+          .map((it: any) => ({ product: it.name, currentStock: it.currentStock, minLevel: it.minLevel }))
+        setStockAlerts(alerts)
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
   }, [])
 
   const getTransactionIcon = (type: string) => {
