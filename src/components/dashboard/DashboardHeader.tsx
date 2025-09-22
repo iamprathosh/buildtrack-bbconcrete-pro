@@ -9,7 +9,6 @@ import { Bell } from 'lucide-react'
 import { useUser, UserButton } from '@clerk/nextjs'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-import { GlobalSearch } from '@/components/global-search'
 
 interface DashboardHeaderProps {
   title: string
@@ -37,9 +36,6 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-          {/* Global Search */}
-          <GlobalSearch className="hidden md:flex" />
-
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />

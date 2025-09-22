@@ -480,6 +480,7 @@ export type Database = {
           checked_out_date: string | null
           notes: string | null
           image_url: string | null
+          maintenance_expected_return_date: string | null
           created_at: string
           updated_at: string
         }
@@ -499,6 +500,7 @@ export type Database = {
           checked_out_date?: string | null
           notes?: string | null
           image_url?: string | null
+          maintenance_expected_return_date?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -518,6 +520,7 @@ export type Database = {
           checked_out_date?: string | null
           notes?: string | null
           image_url?: string | null
+          maintenance_expected_return_date?: string | null
           created_at?: string
           updated_at?: string
         }
