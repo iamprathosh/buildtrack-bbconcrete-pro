@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { useDatabase } from '@/lib/database'
 import type { Equipment as DbEquipment } from '@/types/database'
-import { EquipmentDetailsSheet } from './EquipmentDetailsSheet'
+import { EquipmentDetailsDialog } from './EquipmentDetailsDialog'
 
 interface EquipmentTableProps {
   equipment: any[]
@@ -143,7 +143,7 @@ export function EquipmentTable({}: EquipmentTableProps) {
         </div>
       </CardContent>
 
-      <EquipmentDetailsSheet
+      <EquipmentDetailsDialog
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
         equipment={selected}

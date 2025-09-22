@@ -11,12 +11,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { UserPlus, X, Plus } from 'lucide-react'
-import { User } from './UsersView'
+import { UserProfile } from '@/types/database'
 
 interface AddUserDialogProps {
   isOpen: boolean
   onClose: () => void
-  onUserAdded: (user: User) => void
+  onUserAdded: (user: UserProfile) => void
 }
 
 interface FormData {
@@ -24,7 +24,7 @@ interface FormData {
   lastName: string
   email: string
   phone: string
-  role: 'admin' | 'manager' | 'supervisor' | 'worker' | 'contractor'
+  role: 'super_admin' | 'project_manager' | 'worker'
   department: string
   position: string
   permissions: {
@@ -41,29 +41,21 @@ interface FormData {
 }
 
 const ROLE_PERMISSIONS = {
-  admin: {
+  super_admin: {
     projects: 'admin' as const,
     inventory: 'admin' as const,
     procurement: 'admin' as const,
     reports: 'admin' as const,
     users: 'admin' as const,
-    settings: 'admin' as const
+    settings: 'admin' as const,
   },
-  manager: {
+  project_manager: {
     projects: 'admin' as const,
     inventory: 'write' as const,
     procurement: 'write' as const,
     reports: 'write' as const,
     users: 'read' as const,
-    settings: 'none' as const
-  },
-  supervisor: {
-    projects: 'write' as const,
-    inventory: 'write' as const,
-    procurement: 'read' as const,
-    reports: 'read' as const,
-    users: 'none' as const,
-    settings: 'none' as const
+    settings: 'none' as const,
   },
   worker: {
     projects: 'read' as const,
@@ -71,16 +63,8 @@ const ROLE_PERMISSIONS = {
     procurement: 'none' as const,
     reports: 'none' as const,
     users: 'none' as const,
-    settings: 'none' as const
+    settings: 'none' as const,
   },
-  contractor: {
-    projects: 'read' as const,
-    inventory: 'none' as const,
-    procurement: 'none' as const,
-    reports: 'none' as const,
-    users: 'none' as const,
-    settings: 'none' as const
-  }
 }
 
 const DEPARTMENTS = [
@@ -171,12 +155,22 @@ export function AddUserDialog({ isOpen, onClose, onUserAdded }: AddUserDialogPro
     setError(null)
 
     try {
+      const payload: any = {
+        full_name: `${formData.firstName} ${formData.lastName}`.trim(),
+        email: formData.email,
+        role: formData.role,
+        is_active: true,
+      }
+      if (formData.phone) payload.phone = formData.phone
+      if (formData.position) payload.position = formData.position
+      if (formData.permissions) payload.permissions = formData.permissions
+
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       const data = await response.json()
@@ -185,7 +179,7 @@ export function AddUserDialog({ isOpen, onClose, onUserAdded }: AddUserDialogPro
         throw new Error(data.error || 'Failed to create user')
       }
 
-      onUserAdded(data.user)
+      onUserAdded(data.user as UserProfile)
       handleReset()
     } catch (err) {
       console.error('Error creating user:', err)
@@ -218,8 +212,11 @@ export function AddUserDialog({ isOpen, onClose, onUserAdded }: AddUserDialogPro
     onClose()
   }
 
-  const isFormValid = formData.firstName.trim() && formData.lastName.trim() && 
-                    formData.email.trim() && formData.department && formData.position.trim()
+  const isFormValid = Boolean(
+    formData.firstName.trim() &&
+    formData.lastName.trim() &&
+    formData.email.trim()
+  )
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -306,16 +303,14 @@ export function AddUserDialog({ isOpen, onClose, onUserAdded }: AddUserDialogPro
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrator</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="project_manager">Project Manager</SelectItem>
                       <SelectItem value="worker">Worker</SelectItem>
-                      <SelectItem value="contractor">Contractor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
+                  <Label htmlFor="department">Department (optional)</n
                   <Select
                     value={formData.department}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}

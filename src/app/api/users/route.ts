@@ -7,18 +7,7 @@ import { UserProfile } from '@/types/database'
 
 // Validation schemas
 const userCreateSchema = z.object({
-  full_name: z.string().min(1, 'Full name is required'),
   email: z.string().email('Invalid email format'),
-  phone: z.string().optional(),
-  phone_extension: z.string().optional(),
-  emergency_contact: z.string().optional(),
-  role: z.enum(['super_admin', 'project_manager', 'worker']),
-  department_id: z.string().uuid().optional(),
-  position: z.string().optional(),
-  reports_to_id: z.string().uuid().optional(),
-  hire_date: z.string().datetime().optional(),
-  permissions: z.record(z.string(), z.string()).optional(),
-  is_active: z.boolean().default(true)
 })
 
 export async function GET(request: NextRequest) {
@@ -153,13 +142,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create new user
+// Create new user (minimal invite: email only)
+    const displayName = validatedData.email.split('@')[0]
     const { data: newUser, error } = await db
       .from('user_profiles')
       .insert({
-        ...validatedData,
+        email: validatedData.email,
+        full_name: displayName,
+        role: 'worker',
+        is_active: false,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single()

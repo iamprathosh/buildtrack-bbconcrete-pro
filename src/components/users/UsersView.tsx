@@ -9,12 +9,14 @@ import { useDatabase } from '@/lib/database'
 import { format } from 'date-fns'
 import { UserProfile } from '@/types/database'
 import { Plus, Shield } from 'lucide-react'
+import { InviteUserDialog } from './InviteUserDialog'
 
 export function UsersView() {
   const { db, isReady } = useDatabase()
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   useEffect(() => {
     if (!isReady) return
@@ -80,9 +82,9 @@ export function UsersView() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Users</h1>
-        <Button>
+        <Button onClick={() => setInviteOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add User
+          Invite User
         </Button>
       </div>
 
@@ -141,6 +143,13 @@ export function UsersView() {
           </div>
         </CardContent>
       </Card>
+      <InviteUserDialog
+        isOpen={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onUserAdded={(user) => {
+          setUsers(prev => [user, ...prev])
+        }}
+      />
     </div>
   )
 }
