@@ -75,16 +75,17 @@ export function TransactionHistory() {
         const json = await res.json()
         const txs: Transaction[] = (json.transactions || []).map((t: any) => ({
           id: t.id,
-          type: (t.type || 'IN') as 'IN' | 'OUT' | 'RETURN',
-          product: t.product || 'Unknown',
+          type: (t.transaction_type || 'IN') as 'IN' | 'OUT' | 'RETURN',
+          product: t.product_name || t.name || 'Unknown',
           sku: t.sku || 'N/A',
           quantity: t.quantity || 0,
-          unit: t.unit || 'units',
-          project: t.project || 'No Project',
-          user: t.user || 'Unknown',
-          timestamp: t.timestamp ? new Date(t.timestamp) : new Date(),
-          status: 'completed',
+          unit: t.unit_of_measure || 'units',
+          project: t.project_name || 'No Project',
+          user: t.transaction_done_by || 'Unknown',
+          timestamp: t.transaction_date ? new Date(t.transaction_date) : new Date(),
+          status: (t.status || 'completed') as 'completed' | 'pending' | 'cancelled',
           notes: t.notes,
+          location: t.location || t.from_location_name || t.to_location_name
         }))
         setTransactions(txs)
         setFilteredTransactions(txs)

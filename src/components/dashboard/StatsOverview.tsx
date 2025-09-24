@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -56,13 +57,41 @@ function StatCard({ title, value, change, changeType = 'neutral', icon: Icon, cl
 }
 
 export function StatsOverview() {
+  const [inCount, setInCount] = useState<number>(0)
+  const [outCount, setOutCount] = useState<number>(0)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/simple-transactions/summary', { cache: 'no-store' })
+        const data = await res.json()
+        const summary = data.summary || {}
+        setInCount(Number(summary?.IN?.count || 0))
+        setOutCount(Number(summary?.OUT?.count || 0))
+      } catch (e) {
+        setInValue(0)
+        setOutValue(0)
+      }
+    }
+    load()
+  }, [])
+
+  const formatNumber = (v: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(v)
+
   const stats = [
     {
-      title: 'Total Inventory Value',
-      value: '$234,500',
-      change: '+12% from last month',
+      title: 'Stock In (7d)',
+      value: formatNumber(inCount),
+      change: '',
       changeType: 'positive' as const,
-      icon: Package,
+      icon: TrendingUp,
+    },
+    {
+      title: 'Stock Out (7d)',
+      value: formatNumber(outCount),
+      change: '',
+      changeType: 'negative' as const,
+      icon: TrendingDown,
     },
     {
       title: 'Active Projects',
@@ -77,13 +106,6 @@ export function StatsOverview() {
       change: 'No change',
       changeType: 'neutral' as const,
       icon: Users,
-    },
-    {
-      title: 'Monthly Revenue',
-      value: '$89,400',
-      change: '-5% from last month',
-      changeType: 'negative' as const,
-      icon: DollarSign,
     },
   ]
 

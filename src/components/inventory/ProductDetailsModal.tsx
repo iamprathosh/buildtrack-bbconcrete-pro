@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { productService, ProductWithDetails } from '@/services/ProductService'
 import { StockTransaction } from '@/types/database'
 import { toast } from 'sonner'
+import { useUser } from '@clerk/nextjs'
 import {
   Package,
   MapPin,
@@ -47,9 +48,11 @@ export function ProductDetailsModal({
   onClose, 
   onProductUpdate 
 }: ProductDetailsModalProps) {
+  const { user } = useUser()
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
-  const [stockTransactions, setStockTransactions] = useState<StockTransaction[]>([])
+  const [stockTransactions, setStockTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingTx, setLoadingTx] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedProduct, setEditedProduct] = useState<Partial<ProductWithDetails>>({})
 
@@ -65,9 +68,9 @@ export function ProductDetailsModal({
 
     setLoading(true)
     try {
-      const [productResult, transactionsResult] = await Promise.all([
+      const [productResult, _] = await Promise.all([
         productService.getByIdWithDetails(productId),
-        productService.getStockTransactions(productId, 100)
+        reloadTransactions(true)
       ])
 
       if (productResult.error) {
@@ -81,9 +84,6 @@ export function ProductDetailsModal({
         setEditedProduct(productResult.data)
       }
 
-      if (transactionsResult.data) {
-        setStockTransactions(transactionsResult.data)
-      }
     } catch (error) {
       toast.error('Failed to load product details')
       onClose()
@@ -105,7 +105,13 @@ export function ProductDetailsModal({
         supplier: editedProduct.supplier
       }
 
-      const result = await productService.updateProduct(product.id, updates)
+      const userInfo = user ? {
+        name: user.fullName || user.firstName || 'Unknown User',
+        id: user.id,
+        email: user.emailAddresses?.[0]?.emailAddress || ''
+      } : undefined
+
+      const result = await productService.updateProduct(product.id, updates, userInfo)
       
       if (result.error) {
         toast.error(`Failed to update product: ${result.error}`)
@@ -146,13 +152,32 @@ export function ProductDetailsModal({
     }
   }
 
+  const reloadTransactions = async (silent = false) => {
+    if (!productId) return
+    if (!silent) setLoadingTx(true)
+    try {
+      const res = await fetch(`/api/simple-transactions?product_id=${productId}&limit=100`, { cache: 'no-store' })
+      if (res.ok) {
+        const json = await res.json()
+        setStockTransactions(json.transactions || [])
+      }
+    } catch (e) {
+      if (!silent) toast.error('Failed to refresh transactions')
+    } finally {
+      if (!silent) setLoadingTx(false)
+    }
+  }
+
   const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'receive':
+    const t = (type || '').toUpperCase()
+    switch (t) {
+      case 'RECEIVE':
+      case 'IN':
         return <TrendingUp className="h-4 w-4 text-green-600" />
-      case 'pull':
+      case 'PULL':
+      case 'OUT':
         return <TrendingDown className="h-4 w-4 text-red-600" />
-      case 'return':
+      case 'RETURN':
         return <Package className="h-4 w-4 text-blue-600" />
       default:
         return <Clock className="h-4 w-4 text-gray-600" />
@@ -165,7 +190,7 @@ export function ProductDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -224,7 +249,7 @@ export function ProductDetailsModal({
           </div>
         ) : product ? (
           <ScrollArea className="max-h-[calc(90vh-8rem)]">
-            <Tabs defaultValue="overview" className="space-y-4">
+            <Tabs defaultValue="stock" className="space-y-4">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="details">Details</TabsTrigger>
@@ -301,8 +326,8 @@ export function ProductDetailsModal({
                     <p className="font-medium">{product.sku}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Category:</span>
-                    <p className="font-medium">{product.category?.name || 'Uncategorized'}</p>
+<span className="text-muted-foreground">Category:</span>
+                    <p className="font-medium">{product.category || 'Uncategorized'}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Supplier:</span>
@@ -448,6 +473,57 @@ export function ProductDetailsModal({
                         <p className="text-sm border rounded-md px-3 py-2 bg-muted">{product.unit_of_measure}</p>
                       </div>
                     </div>
+
+                    {/* User Tracking Information */}
+                    <Separator />
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <Label className="text-base font-medium">User Tracking</Label>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Created By */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 bg-green-500 rounded-full" />
+                            <span className="text-sm font-medium text-muted-foreground">Created By</span>
+                          </div>
+                          <div className="pl-4 space-y-1">
+                            <p className="text-sm font-medium">
+                              {product.created_by || 'Unknown User'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.created_by_email || 'No email'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(product.created_at || '')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Updated By */}
+                        {(product.updated_by || product.updated_at !== product.created_at) && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              <span className="text-sm font-medium text-muted-foreground">Last Updated By</span>
+                            </div>
+                            <div className="pl-4 space-y-1">
+                              <p className="text-sm font-medium">
+                                {product.updated_by || 'System Update'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {product.updated_by_email || 'No email'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(product.updated_at || '')}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -455,10 +531,15 @@ export function ProductDetailsModal({
               <TabsContent value="stock" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <History className="h-4 w-4 mr-2" />
-                      Stock Transaction History
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center">
+                        <History className="h-4 w-4 mr-2" />
+                        Stock Transaction History
+                      </CardTitle>
+                      <Button variant="outline" size="sm" onClick={() => reloadTransactions()} disabled={loadingTx}>
+                        {loadingTx ? 'Refreshing...' : 'Refresh'}
+                      </Button>
+                    </div>
                     <CardDescription>
                       Recent stock movements for this product
                     </CardDescription>
@@ -466,32 +547,49 @@ export function ProductDetailsModal({
                   <CardContent>
                     {stockTransactions.length > 0 ? (
                       <div className="space-y-3">
-                        {stockTransactions.map((transaction) => (
-                          <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              {getTransactionIcon(transaction.transaction_type)}
-                              <div>
-                                <p className="font-medium capitalize">
-                                  {transaction.transaction_type.replace('_', ' ')} Transaction
+                        {stockTransactions.map((tx: any) => {
+                          const tType = (tx.transaction_type || '').toUpperCase()
+                          const isOut = tType === 'OUT' || tType === 'PULL'
+                          const dateStr = tx.done_at || tx.transaction_date || tx.created_at || ''
+                          return (
+                            <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                {getTransactionIcon(tx.transaction_type)}
+                                <div>
+                                  <p className="font-medium capitalize">
+                                    {tType === 'IN' ? 'In' : tType === 'OUT' ? 'Out' : 'Return'} Transaction
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatDate(dateStr)}
+                                  </p>
+                                  {(tx.reason || tx.done_by || tx.project_name) && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {tx.reason ? `${tx.reason}` : ''}
+                                      {tx.reason && (tx.done_by || tx.project_name) ? ' • ' : ''}
+                                      {tx.done_by ? `by ${tx.done_by}` : ''}
+                                      {tx.project_name ? ` • ${tx.project_name}` : ''}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className={`font-medium ${isOut ? 'text-red-600' : 'text-green-600'}`}>
+                                  {isOut ? '-' : '+'}{tx.quantity} {product.unit_of_measure}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDate(transaction.created_at || '')}
-                                </p>
+                                {tx.unit_cost != null && (
+                                  <p className="text-sm text-muted-foreground">
+                                    @ {formatCurrency(tx.unit_cost)}
+                                  </p>
+                                )}
+                                {tx.total_value != null && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Total: {formatCurrency(tx.total_value)}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-medium">
-                                {transaction.transaction_type === 'pull' ? '-' : '+'}
-                                {transaction.quantity} {product.unit_of_measure}
-                              </p>
-                              {transaction.unit_cost && (
-                                <p className="text-sm text-muted-foreground">
-                                  @ {formatCurrency(transaction.unit_cost)}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">

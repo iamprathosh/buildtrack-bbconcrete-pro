@@ -38,7 +38,7 @@ export default function RootLayout({
         }
       }}
     >
-      <html lang="en" className="overflow-x-hidden">
+      <html lang="en" className="overflow-x-hidden" suppressHydrationWarning>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden max-w-full`}
         >

@@ -310,7 +310,7 @@ export function AddUserDialog({ isOpen, onClose, onUserAdded }: AddUserDialogPro
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department (optional)</n
+                  <Label htmlFor="department">Department (optional)</Label>
                   <Select
                     value={formData.department}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))}

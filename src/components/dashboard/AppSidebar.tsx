@@ -77,10 +77,7 @@ const navigationItems = {
   ]
 }
 
-const quickActions = [
-  { name: 'New Inventory', href: '/inventory/add', icon: Package },
-  { name: 'Create Report', href: '/reports/new', icon: FileText },
-]
+const quickActions: any[] = []
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -171,26 +168,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {quickActions.map((action) => {
-                const Icon = action.icon
-                return (
-                  <SidebarMenuItem key={action.href}>
-                    <SidebarMenuButton asChild size="sm" tooltip={action.name}>
-                      <Link href={action.href}>
-                        <Icon />
-                        <span>{action.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>

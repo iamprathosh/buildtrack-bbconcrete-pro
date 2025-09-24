@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -173,8 +173,8 @@ export function ProcurementTable({
                 </TableHeader>
                 <TableBody>
                   {purchaseOrders.map((order) => (
-                    <>
-                      <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
+                    <Fragment key={order.id}>
+                      <TableRow className="cursor-pointer hover:bg-muted/50">
                         <TableCell>
                           <Checkbox
                             checked={selectedOrders.includes(order.id)}
@@ -345,7 +345,7 @@ export function ProcurementTable({
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>

@@ -1,23 +1,41 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { format } from 'date-fns'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { TasksTable, Task, User as TaskUser } from './TasksTable'
 import { Project } from './ProjectsView'
-import { EditProjectDialog } from './EditProjectDialog'
+import { DatePicker } from '@/components/ui/date-picker'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import * as z from 'zod'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Building2,
   Calendar,
@@ -42,147 +60,111 @@ interface ProjectDetailsDialogProps {
 }
 
 export function ProjectDetailsDialog({ project, isOpen, onClose, onProjectUpdate }: ProjectDetailsDialogProps) {
-  const { user } = useUser()
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [users, setUsers] = useState<TaskUser[]>([])
-  const [loading, setLoading] = useState(false)
-  const [tasksLoading, setTasksLoading] = useState(false)
-  const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
-  const [showEditProjectDialog, setShowEditProjectDialog] = useState(false)
+  // Simple tasks state
+  const [simpleTasks, setSimpleTasks] = useState<Array<{
+    id: string
+    projectId: string
+    task: string
+    createdBy: string
+    createdAt: Date | null
+    deadline: Date | null
+    completed: boolean
+  }>>([])
+  const [simpleTasksLoading, setSimpleTasksLoading] = useState(false)
+  const [showAddSimpleTaskDialog, setShowAddSimpleTaskDialog] = useState(false)
 
-  const isAdmin = user?.publicMetadata?.role === 'super_admin' || user?.publicMetadata?.role === 'project_manager'
+  // Form for creating simple tasks
+  const simpleTaskSchema = z.object({
+    task: z.string().min(1, 'Task is required'),
+    deadline: z.date().optional().nullable(),
+  })
+  type SimpleTaskFormValues = z.infer<typeof simpleTaskSchema>
+  const simpleTaskForm = useForm<SimpleTaskFormValues>({
+    resolver: zodResolver(simpleTaskSchema),
+    defaultValues: { task: '', deadline: null },
+  })
 
-  // Fetch project tasks and users when dialog opens
+
+  // Fetch simple tasks when dialog opens
   useEffect(() => {
     if (isOpen && project?.id) {
-      fetchProjectData()
+      fetchSimpleTasks()
     }
   }, [isOpen, project?.id])
 
-  const fetchProjectData = async () => {
+
+
+
+
+
+  const fetchSimpleTasks = async () => {
     if (!project?.id) return
-
-    setLoading(true)
+    setSimpleTasksLoading(true)
     try {
-      const [tasksResponse, usersResponse] = await Promise.all([
-        fetch(`/api/projects/${project.id}/tasks`),
-        fetch('/api/users')
-      ])
-
-      if (tasksResponse.ok) {
-        const tasksData = await tasksResponse.json()
-        setTasks(tasksData.tasks || [])
+      const res = await fetch(`/api/projects/${project.id}/simple-tasks`)
+      if (res.ok) {
+        const data = await res.json()
+        setSimpleTasks((data.tasks || []).map((t: any) => ({
+          ...t,
+          completed: !!t.completed,
+        })))
       }
-
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json()
-        const rawUsers = usersData.users || []
-        console.log('Raw users data:', rawUsers)
-        
-        // Filter out duplicates and invalid users
-        const validUsers = rawUsers.filter((user: any) => user && user.id && user.full_name)
-        const uniqueUsers = validUsers.filter((user: any, index: number, arr: any[]) => 
-          arr.findIndex(u => u.id === user.id) === index
-        )
-        
-        console.log('Filtered unique users:', uniqueUsers)
-        setUsers(uniqueUsers)
-      }
-    } catch (error) {
-      console.error('Failed to fetch project data:', error)
+    } catch (e) {
+      console.error('Failed to fetch simple tasks:', e)
     } finally {
-      setLoading(false)
+      setSimpleTasksLoading(false)
     }
   }
 
-  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-    setTasksLoading(true)
+  const onSubmitSimpleTask = async (values: SimpleTaskFormValues) => {
+    if (!project?.id) return
     try {
-      const response = await fetch(`/api/projects/${project?.id}/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      })
-
-      if (response.ok) {
-        const { task: updatedTask } = await response.json()
-        setTasks(prev => prev.map(task => 
-          task.id === taskId ? { ...task, ...updatedTask } : task
-        ))
-        
-        // Refresh parent project data if needed for progress update
-        // This could be optimized to update progress locally
-      }
-    } catch (error) {
-      console.error('Failed to update task:', error)
-    } finally {
-      setTasksLoading(false)
-    }
-  }
-
-  const handleTaskDelete = async (taskId: string) => {
-    setTasksLoading(true)
-    try {
-      const response = await fetch(`/api/projects/${project?.id}/tasks/${taskId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setTasks(prev => prev.filter(task => task.id !== taskId))
-      }
-    } catch (error) {
-      console.error('Failed to delete task:', error)
-    } finally {
-      setTasksLoading(false)
-    }
-  }
-
-  const handleTaskAdd = async (taskData: Omit<Task, 'id' | 'taskNumber' | 'createdAt' | 'updatedAt'>) => {
-    setTasksLoading(true)
-    try {
-      const response = await fetch(`/api/projects/${project?.id}/tasks`, {
+      const res = await fetch(`/api/projects/${project.id}/simple-tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskData),
+        body: JSON.stringify({
+          task: values.task,
+          deadline: values.deadline || null,
+        }),
       })
-
-      if (response.ok) {
-        const { task: newTask } = await response.json()
-        setTasks(prev => [...prev, newTask])
+      if (res.ok) {
+        const { task } = await res.json()
+        setSimpleTasks(prev => [{ ...task, completed: !!task.completed }, ...prev])
+        setShowAddSimpleTaskDialog(false)
+        simpleTaskForm.reset({ task: '', deadline: null })
       }
-    } catch (error) {
-      console.error('Failed to create task:', error)
-    } finally {
-      setTasksLoading(false)
+    } catch (e) {
+      console.error('Failed to create simple task:', e)
     }
   }
 
-  const handleProjectUpdate = async (projectId: string, updates: Partial<Project>) => {
-    console.log('handleProjectUpdate called', { projectId, updates })
+  const handleToggleSimpleTaskCompleted = async (taskId: string, value: boolean) => {
+    if (!project?.id) return
     try {
-      console.log('Making PUT request to:', `/api/projects/${projectId}`)
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const res = await fetch(`/api/projects/${project.id}/simple-tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ completed: value })
       })
-
-      console.log('Response status:', response.status)
-      if (response.ok) {
-        const responseData = await response.json()
-        console.log('Update successful:', responseData)
-        // Call parent update handler if provided
-        onProjectUpdate?.(projectId, updates)
-        // Refresh the dialog data
-        if (isOpen && project?.id === projectId) {
-          fetchProjectData()
-        }
-      } else {
-        const errorData = await response.text()
-        console.error('Update failed:', response.status, errorData)
+      if (res.ok) {
+        const { task } = await res.json()
+        setSimpleTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !!task.completed } : t))
       }
-    } catch (error) {
-      console.error('Failed to update project:', error)
+    } catch (e) {
+      console.error('Failed to toggle simple task completed:', e)
+    }
+  }
+
+  const handleDeleteSimpleTask = async (taskId: string) => {
+    if (!project?.id) return
+    if (!window.confirm('Delete this task?')) return
+    try {
+      const res = await fetch(`/api/projects/${project.id}/simple-tasks/${taskId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setSimpleTasks(prev => prev.filter(t => t.id !== taskId))
+      }
+    } catch (e) {
+      console.error('Failed to delete simple task:', e)
     }
   }
 
@@ -225,36 +207,33 @@ export function ProjectDetailsDialog({ project, isOpen, onClose, onProjectUpdate
     }).format(amount)
   }
 
-  const getTaskStats = () => {
-    const total = tasks.length
-    const completed = tasks.filter(t => t.status === 'completed').length
-    const inProgress = tasks.filter(t => t.status === 'in_progress').length
-    const overdue = tasks.filter(t => {
-      if (!t.dueDate || t.status === 'completed') return false
-      return new Date() > t.dueDate
-    }).length
-
-    return { total, completed, inProgress, overdue }
-  }
-
-  const taskStats = getTaskStats()
 
   if (!project) return null
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[1100px] md:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div>
               <DialogTitle className="text-xl">{project.name}</DialogTitle>
-              <div className="flex items-center space-x-3 text-sm text-muted-foreground mt-1">
-                <span>{project.jobNumber}</span>
-                <span>•</span>
-                <span>{project.client}</span>
-                <span>•</span>
-                <span>{project.location}</span>
-              </div>
+              {(() => {
+                const items = [
+                  project.jobNumber,
+                  project.client && project.client.trim() ? project.client : null,
+                  project.location && project.location.trim() ? project.location : null,
+                ].filter(Boolean) as string[]
+                return (
+                  <div className="flex items-center text-sm text-muted-foreground mt-1 flex-wrap gap-x-2">
+                    {items.map((it, idx) => (
+                      <span key={idx} className="truncate max-w-[220px]">
+                        {it}{idx < items.length - 1 && <span className="mx-2">•</span>}
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex items-center space-x-3">
               <div className={`flex items-center space-x-2 px-2 py-1 rounded border ${getStatusColor(project.status)}`}>
@@ -263,49 +242,31 @@ export function ProjectDetailsDialog({ project, isOpen, onClose, onProjectUpdate
                   {project.status.replace('-', ' ')}
                 </span>
               </div>
-              {/* Always show for testing - can be restricted later */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  console.log('Edit Project button clicked', { user, isAdmin })
-                  setShowEditProjectDialog(true)
-                }}
-                className="border-blue-600 text-blue-600 hover:bg-blue-50"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Project
-              </Button>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Simplified Overview */}
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="flex items-center space-x-3 p-3 border rounded-lg">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              <div>
-                <div className="font-semibold">{project.progress}%</div>
-                <div className="text-xs text-muted-foreground">Progress</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3 p-3 border rounded-lg">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              <div>
-                <div className="font-semibold">{formatCurrency(project.budget)}</div>
-                <div className="text-xs text-muted-foreground">Budget</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3 p-3 border rounded-lg">
-              <Users className="h-5 w-5 text-purple-600" />
-              <div>
-                <div className="font-semibold">{project.manager}</div>
-                <div className="text-xs text-muted-foreground">Manager</div>
-              </div>
-            </div>
+          {/* Overview */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <Card>
+              <CardContent className="flex items-center space-x-3 p-4">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                <div>
+                  <div className="font-semibold">{project.progress}%</div>
+                  <div className="text-xs text-muted-foreground">Progress</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center space-x-3 p-4">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                <div>
+                  <div className="font-semibold">{formatCurrency(project.budget)}</div>
+                  <div className="text-xs text-muted-foreground">Budget</div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Description */}
@@ -315,129 +276,152 @@ export function ProjectDetailsDialog({ project, isOpen, onClose, onProjectUpdate
             </div>
           )}
 
-          {/* Task Management Section */}
-          <div className="space-y-4">
-            {/* Task Summary and Actions Header */}
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
-              <div className="flex items-center space-x-6">
+
+          {/* Simple Tasks */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-lg">Project Tasks</h3>
-                  <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                    <span>{taskStats.total} total</span>
-                    <span>•</span>
-                    <span className="text-green-600">{taskStats.completed} completed</span>
-                    <span>•</span>
-                    <span className="text-blue-600">{taskStats.inProgress} in progress</span>
-                    {taskStats.overdue > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="text-red-600 font-medium">{taskStats.overdue} overdue</span>
-                      </>
-                    )}
-                  </div>
+                  <CardTitle>Simple Tasks</CardTitle>
+                  <CardDescription>Quick notes and deadlines linked to this project</CardDescription>
                 </div>
-                {taskStats.total > 0 && (
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right">
-                      <div className="text-2xl font-bold">{Math.round((taskStats.completed / taskStats.total) * 100)}%</div>
-                      <div className="text-xs text-muted-foreground">Complete</div>
-                    </div>
-                    <Progress 
-                      value={Math.round((taskStats.completed / taskStats.total) * 100)} 
-                      className="w-20 h-2" 
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {/* Quick Action Buttons */}
-              {user && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <Button 
-                    onClick={() => {
-                      console.log('Add Task button clicked (header)', { user, showAddTaskDialog })
-                      setShowAddTaskDialog(true)
-                    }}
+                    onClick={() => setShowAddSimpleTaskDialog(true)}
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Task
+                    Add Simple Task
                   </Button>
-                  {tasks.length > 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        const completed = tasks.filter(t => t.status !== 'completed')
-                        if (completed.length > 0) {
-                          const message = `Mark all ${completed.length} pending tasks as completed?`
-                          if (window.confirm(message)) {
-                            completed.forEach(task => {
-                              handleTaskUpdate(task.id, { status: 'completed' as const, completedDate: new Date() })
-                            })
-                          }
-                        }
-                      }}
-                      disabled={taskStats.completed === taskStats.total}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Complete All
-                    </Button>
-                  )}
+                </div>
+              </div>
+              {simpleTasks.length > 0 && (
+                <div className="flex items-center gap-3 mt-3">
+                  {(() => {
+                    const total = simpleTasks.length
+                    const done = simpleTasks.filter(t => t.completed).length
+                    const pct = Math.round((done / total) * 100)
+                    return (
+                      <>
+                        <div className="text-right">
+                          <div className="text-sm font-medium">{pct}% Complete</div>
+                        </div>
+                        <Progress value={pct} className="w-32 h-2" />
+                      </>
+                    )
+                  })()}
                 </div>
               )}
-            </div>
-
-            {/* Tasks Content */}
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              </div>
-            ) : tasks.length > 0 ? (
-              <TasksTable
-                projectId={project.id}
-                tasks={tasks}
-                users={users}
-                onTaskUpdate={handleTaskUpdate}
-                onTaskDelete={handleTaskDelete}
-                onTaskAdd={handleTaskAdd}
-                isAdmin={isAdmin}
-                externalAddTrigger={showAddTaskDialog}
-                onExternalAddTriggerHandled={() => setShowAddTaskDialog(false)}
-              />
-            ) : (
-              <div className="text-center py-12 bg-muted/20 rounded-lg border-2 border-dashed">
-                <div className="max-w-sm mx-auto">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Plus className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h4 className="font-medium mb-2">No Tasks Yet</h4>
-                  <p className="text-muted-foreground mb-4">Get started by creating your first task for this project.</p>
-                  {user && (
-                    <Button 
-                      onClick={() => setShowAddTaskDialog(true)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Task
-                    </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Completed</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {simpleTasksLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Loading...</TableCell>
+                    </TableRow>
+                  ) : simpleTasks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No simple tasks yet.</TableCell>
+                    </TableRow>
+                  ) : (
+                    simpleTasks.map((t, idx) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="font-mono text-xs">{simpleTasks.length - idx}</TableCell>
+                        <TableCell>{t.task}</TableCell>
+                        <TableCell>
+                          {t.deadline ? format(t.deadline, 'MMM dd, yyyy') : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          {t.createdAt ? format(t.createdAt, 'MMM dd, yyyy') : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox checked={t.completed} onCheckedChange={(checked) => handleToggleSimpleTaskCompleted(t.id, Boolean(checked))} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteSimpleTask(t.id)} className="text-red-600 hover:text-red-700">
+                            Delete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   )}
-                </div>
-              </div>
-            )}
-          </div>
+                </TableBody>
+              </Table>
+            </div>
+            </CardContent>
+          </Card>
+
         </div>
       </DialogContent>
-      
-      {/* Edit Project Dialog */}
-      <EditProjectDialog
-        project={project}
-        isOpen={showEditProjectDialog}
-        onClose={() => setShowEditProjectDialog(false)}
-        onProjectUpdate={handleProjectUpdate}
-        users={users}
-      />
     </Dialog>
+
+    {/* Add Simple Task Dialog (separate from main dialog for cleaner markup) */}
+    <Dialog open={showAddSimpleTaskDialog} onOpenChange={(open) => {
+        setShowAddSimpleTaskDialog(open)
+        if (!open) simpleTaskForm.reset({ task: '', deadline: null })
+      }}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Add Simple Task</DialogTitle>
+        </DialogHeader>
+
+        <Form {...simpleTaskForm}>
+          <form onSubmit={simpleTaskForm.handleSubmit(onSubmitSimpleTask)} className="space-y-4">
+            <FormField
+              control={simpleTaskForm.control}
+              name="task"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Task</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Describe the task" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={simpleTaskForm.control}
+              name="deadline"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Deadline (optional)</FormLabel>
+                  <DatePicker
+                    date={field.value ?? undefined}
+                    onDateChange={(d) => field.onChange(d ?? null)}
+                    placeholder="Select deadline"
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddSimpleTaskDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Add Task
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

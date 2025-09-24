@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,84 +12,69 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Wrench,
+  Loader2,
+  RefreshCw
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 interface Activity {
   id: string
-  type: 'inventory' | 'project' | 'user' | 'system'
+  type: 'inventory' | 'project' | 'user' | 'system' | 'equipment'
   title: string
   description: string
   timestamp: string
   status: 'completed' | 'pending' | 'warning'
   user?: string
   link?: string
+  metadata?: any
 }
 
 export function RecentActivity() {
-  const activities: Activity[] = [
-    {
-      id: '1',
-      type: 'inventory',
-      title: 'Inventory Updated',
-      description: 'Concrete Mix #205 stock level updated to 150 bags',
-      timestamp: '2 minutes ago',
-      status: 'completed',
-      user: 'John Doe',
-      link: '/inventory'
-    },
-    {
-      id: '2',
-      type: 'project',
-      title: 'New Project Started',
-      description: 'Downtown Office Building - Phase 2',
-      timestamp: '1 hour ago',
-      status: 'pending',
-      user: 'Sarah Johnson',
-      link: '/projects'
-    },
-    {
-      id: '3',
-      type: 'user',
-      title: 'New Team Member',
-      description: 'Mike Wilson joined as Construction Worker',
-      timestamp: '3 hours ago',
-      status: 'completed',
-      user: 'Admin',
-      link: '/admin/users'
-    },
-    {
-      id: '4',
-      type: 'system',
-      title: 'Equipment Maintenance Due',
-      description: 'Mixer #3 requires scheduled maintenance',
-      timestamp: '5 hours ago',
-      status: 'warning',
-      user: 'System',
-      link: '/equipment'
-    },
-    {
-      id: '5',
-      type: 'inventory',
-      title: 'Low Stock Alert',
-      description: 'Rebar Grade 60 running low (12 units remaining)',
-      timestamp: '1 day ago',
-      status: 'warning',
-      user: 'System',
-      link: '/inventory'
-    },
-    {
-      id: '6',
-      type: 'project',
-      title: 'Project Completed',
-      description: 'Riverside Apartments - Foundation work finished',
-      timestamp: '2 days ago',
-      status: 'completed',
-      user: 'Robert Chen',
-      link: '/projects'
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch recent equipment transactions
+  const fetchRecentActivities = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch('/api/equipment/transactions/recent?limit=10')
+      if (!response.ok) {
+        throw new Error('Failed to fetch recent activities')
+      }
+      
+      const data = await response.json()
+      setActivities(data.activities || [])
+      
+    } catch (err) {
+      console.error('Error fetching recent activities:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load activities')
+      // Fallback to some static activities on error
+      setActivities([
+        {
+          id: 'fallback-1',
+          type: 'system',
+          title: 'System Online',
+          description: 'BuildTrack system is operational',
+          timestamp: 'Just now',
+          status: 'completed',
+          user: 'System',
+          link: '/'
+        }
+      ])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
+
+  useEffect(() => {
+    fetchRecentActivities()
+  }, [])
 
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {
@@ -98,6 +84,8 @@ export function RecentActivity() {
         return Building2
       case 'user':
         return Users
+      case 'equipment':
+        return Wrench
       case 'system':
         return Clock
       default:
@@ -138,21 +126,51 @@ export function RecentActivity() {
           <div>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>
-              Latest updates and changes across your projects
+              Recent equipment transactions and maintenance activities
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/activity">
-              View All
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchRecentActivities}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/equipment">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-96">
-          <div className="space-y-4">
-            {activities.map((activity) => {
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading recent activities...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-8">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+              <span className="ml-2 text-sm text-red-600">{error}</span>
+            </div>
+          ) : activities.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <Clock className="h-6 w-6 text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">No recent activities</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {activities.map((activity) => {
               const IconComponent = getActivityIcon(activity.type)
               return (
                 <div
@@ -195,8 +213,9 @@ export function RecentActivity() {
                   )}
                 </div>
               )
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </ScrollArea>
       </CardContent>
     </Card>

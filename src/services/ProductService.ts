@@ -3,15 +3,13 @@ import {
   Product, 
   ProductInsert, 
   ProductUpdate,
-  ProductCategory,
   InventoryLocation,
   StockTransaction,
-  StockTransactionInsert,
-  DatabaseResult 
+  StockTransactionInsert
 } from '@/types/database'
+import { DatabaseResult } from '@/lib/database-server'
 
 export interface ProductWithDetails extends Omit<Product, 'location'> {
-  category?: ProductCategory | null
   location?: InventoryLocation | null
   inventory_location?: InventoryLocation | null
   stock_status?: 'in-stock' | 'low-stock' | 'out-of-stock'
@@ -42,13 +40,12 @@ export class ProductService extends BaseService {
         .from('products')
         .select(`
           *,
-          category:product_categories(*),
           inventory_location:inventory_locations(*)
         `)
 
       // Apply filters
       if (options?.category && options.category !== 'all') {
-        query = query.eq('category_id', options.category)
+        query = query.eq('category', options.category)
       }
 
       if (options?.location && options.location !== 'all') {
@@ -110,7 +107,6 @@ export class ProductService extends BaseService {
         .from('products')
         .select(`
           *,
-          category:product_categories(*),
           inventory_location:inventory_locations(*)
         `)
         .eq('id', id)
@@ -146,20 +142,45 @@ export class ProductService extends BaseService {
 
   // Create new product
   async createProduct(data: ProductInsert): Promise<DatabaseResult<Product>> {
-    this.validateRequired(data, ['sku', 'name', 'unit_of_measure'])
-    return this.create<Product>('products', {
-      ...data,
-      is_active: data.is_active ?? true,
-      current_stock: data.current_stock ?? 0,
-      created_at: this.formatDate(new Date()),
-      updated_at: this.formatDate(new Date())
-    })
+    try {
+      console.log('ProductService: Validating product data:', data)
+      this.validateRequired(data, ['sku', 'name', 'unit_of_measure'])
+      
+      const productToInsert = {
+        ...data,
+        is_active: data.is_active ?? true,
+        current_stock: data.current_stock ?? 0,
+        created_at: this.formatDate(new Date()),
+        updated_at: this.formatDate(new Date())
+      }
+      
+      console.log('ProductService: Creating product with data:', productToInsert)
+      
+      const result = await this.create<Product>('products', productToInsert)
+      
+      if (result.error) {
+        console.error('ProductService: Database error:', result.error)
+      } else {
+        console.log('ProductService: Product created successfully:', result.data)
+      }
+      
+      return result
+    } catch (error) {
+      console.error('ProductService: Unexpected error in createProduct:', error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error in ProductService'
+      }
+    }
   }
 
   // Update product
-  async updateProduct(id: string, data: ProductUpdate): Promise<DatabaseResult<Product>> {
+  async updateProduct(id: string, data: ProductUpdate, updatedBy?: {name: string, id: string, email: string}): Promise<DatabaseResult<Product>> {
     return this.update<Product>('products', id, {
       ...data,
+      updated_by: updatedBy?.name || null,
+      updated_by_id: updatedBy?.id || null,
+      updated_by_email: updatedBy?.email || null,
       updated_at: this.formatDate(new Date())
     })
   }
@@ -174,7 +195,7 @@ export class ProductService extends BaseService {
     return this.safeQuery<InventoryStats>(async (client) => {
       const productsResult = await client
         .from('products')
-        .select('current_stock, min_stock_level, mauc, category_id')
+        .select('current_stock, min_stock_level, mauc, category')
         .eq('is_active', true)
 
       if (productsResult.error || !productsResult.data) {
@@ -201,8 +222,8 @@ export class ProductService extends BaseService {
           lowStockItems++
         }
 
-        if (product.category_id) {
-          uniqueCategories.add(product.category_id)
+        if (product.category) {
+          uniqueCategories.add(product.category)
         }
       })
 
@@ -226,7 +247,6 @@ export class ProductService extends BaseService {
         .from('products')
         .select(`
           *,
-          category:product_categories(*),
           inventory_location:inventory_locations(*)
         `)
         .lte('current_stock', 0) // This will be refined by stock_status calculation
