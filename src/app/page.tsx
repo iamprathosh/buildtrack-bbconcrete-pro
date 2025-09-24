@@ -1,7 +1,7 @@
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { StatsOverview } from '@/components/dashboard/StatsOverview'
-import { RecentActivity } from '@/components/dashboard/RecentActivity'
+import { RecentActivityTable } from '@/components/dashboard/RecentActivityTable'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,8 +40,8 @@ export default function Home() {
             
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              <div className="xl:col-span-2">
-                <RecentActivity />
+              <div className="xl:col-span-2 space-y-6">
+                <RecentActivityTable />
               </div>
               <div>
                 <QuickActions />

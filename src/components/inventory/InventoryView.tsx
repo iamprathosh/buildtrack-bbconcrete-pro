@@ -34,7 +34,7 @@ function productToInventoryItem(product: ProductWithDetails): InventoryItem {
     id: product.id,
     name: product.name,
     sku: product.sku,
-    category: product.category?.name || 'Uncategorized',
+    category: product.category || 'Uncategorized',
     currentStock: product.current_stock || 0,
     minLevel: product.min_stock_level || 0,
     maxLevel: product.max_stock_level || 0,
@@ -239,342 +239,356 @@ export function InventoryView() {
     await refresh()
   }
 
-  // Show loading state
-  if (!isReady) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Connecting to database...</span>
-      </div>
-    )
-  }
+  // Note: do not early-return here to keep hooks order stable
+
+  // Handle query param to auto-open Add Item dialog
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const action = params.get('action')
+      if (action === 'add-item') {
+        setIsAddDialogOpen(true)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('action')
+        window.history.replaceState({}, '', url.toString())
+      }
+    } catch {}
+  }, [])
+
+  // Handle query param to auto-open Stock dialog
+  const [autoStockType, setAutoStockType] = useState<'IN' | 'OUT' | 'RETURN' | undefined>(undefined)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const action = params.get('action')
+      const type = params.get('type') as 'IN' | 'OUT' | 'RETURN' | null
+      if (action === 'stock' && (type === 'IN' || type === 'OUT' || type === 'RETURN')) {
+        setAutoStockType(type)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('action')
+        url.searchParams.delete('type')
+        window.history.replaceState({}, '', url.toString())
+      }
+    } catch {}
+  }, [])
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      {/* Responsive container ensures no horizontal scroll */}
-      {/* Header Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
-          </Button>
-          
-          {selectedItems.length > 0 && (
+      {!isReady ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Connecting to database...</span>
+        </div>
+      ) : (
+        <>
+          {/* Responsive container ensures no horizontal scroll */}
+          {/* Header Actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
+              
+              {selectedItems.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary">
+                    {selectedItems.length} selected
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('delete')}>
+                    Delete
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('export')}>
+                    Export Selected
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center space-x-2">
-              <Badge variant="secondary">
-                {selectedItems.length} selected
-              </Badge>
-              <Button variant="outline" size="sm" onClick={() => handleBulkAction('delete')}>
-                Delete
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleBulkAction('export')}>
-                Export Selected
+              <Button variant="outline" onClick={handleExportInventory}>
+                <Download className="h-4 w-4 mr-2" />
+                Export
               </Button>
             </div>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleImportInventory}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" onClick={handleExportInventory}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Operations Quick Actions */}
-      <div className="mt-2">
-        {/* Three operations cards: IN, OUT, RETURN */}
-        {/* These open the OperationsForm preconfigured */}
-        <OperationsCards />
-      </div>
-
-      {/* Stats Cards */}
-      <InventoryStats stats={stats} loading={loading} />
-
-      {/* Filters */}
-      <InventoryFilters 
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        inventory={products.map(productToInventoryItem)}
-      />
-
-      {/* Main Content */}
-      <Tabs defaultValue="table" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="table">Table View</TabsTrigger>
-          <TabsTrigger value="cards">Card View</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="table" className="space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Loading products...</span>
-            </div>
-          ) : (
-            <InventoryTable 
-              inventory={filteredInventory}
-              selectedItems={selectedItems}
-              onSelectedItemsChange={setSelectedItems}
-              onRowClick={handleRowClick}
-              onItemUpdate={async (itemId, updates) => {
-                // Convert InventoryItem updates back to ProductUpdate
-                const productUpdates = {
-                  name: updates.name,
-                  sku: updates.sku,
-                  description: updates.description,
-                  current_stock: updates.currentStock,
-                  min_stock_level: updates.minLevel,
-                  max_stock_level: updates.maxLevel,
-                  unit_of_measure: updates.unit,
-                  supplier: updates.supplier
-                }
-                
-                const success = await updateProduct(itemId, productUpdates)
-                if (success) {
-                  toast.success('Product updated successfully')
-                } else {
-                  toast.error('Failed to update product')
-                }
-              }}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="cards" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredInventory.map((item) => (
-              <Card 
-                key={item.id} 
-                className="relative cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => handleRowClick(item.id)}
-              >
-                {/* Product Image */}
-                <div className="aspect-video bg-muted/30 rounded-t-lg overflow-hidden">
-                  {item.imageUrl ? (
-                    <>
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="w-full h-full object-cover transition-transform hover:scale-105"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.style.display = 'none'
-                          const fallback = target.nextElementSibling as HTMLElement
-                          if (fallback) fallback.style.display = 'flex'
-                        }}
-                      />
-                      <div className="hidden w-full h-full flex items-center justify-center">
-                        <div className="text-center text-muted-foreground">
-                          <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No image</p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No image</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <CardTitle className="text-lg truncate">{item.name}</CardTitle>
-                      <CardDescription className="truncate">
-                        {item.sku} • {item.category}
-                      </CardDescription>
-                    </div>
-                    <Badge variant={
-                      item.status === 'in-stock' ? 'default' :
-                      item.status === 'low-stock' ? 'secondary' :
-                      item.status === 'out-of-stock' ? 'destructive' : 'outline'
-                    } className="ml-2 shrink-0">
-                      {item.status.replace('-', ' ')}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Stock</p>
-                      <p className="font-medium">{item.currentStock} {item.unit}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Value</p>
-                      <p className="font-medium">${item.totalValue.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Location</p>
-                      <p className="font-medium truncate">{item.location}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Unit Price</p>
-                      <p className="font-medium">${item.unitPrice.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Supplier and Description */}
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Supplier</p>
-                      <p className="font-medium truncate">{item.supplier}</p>
-                    </div>
-                    {item.description && (
-                      <div>
-                        <p className="text-muted-foreground">Description</p>
-                        <p className="text-xs text-muted-foreground overflow-hidden" style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical' as const
-                        }}>
-                          {item.description}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1">
-                    {item.tags.slice(0, 3).map(tag => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {item.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{item.tags.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
           </div>
-        </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Stock Status Distribution</CardTitle>
-                <CardDescription>Items by stock status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {['in-stock', 'low-stock', 'out-of-stock'].map(status => {
-                    const count = filteredInventory.filter(item => item.status === status).length
-                    const percentage = filteredInventory.length > 0 ? (count / filteredInventory.length) * 100 : 0
-                    
-                    return (
-                      <div key={status} className="flex items-center justify-between">
-                        <span className="capitalize text-sm">{status.replace('-', ' ')}</span>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-muted rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                status === 'in-stock' ? 'bg-green-500' :
-                                status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium w-8">{count}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Value by Category</CardTitle>
-                <CardDescription>Total inventory value by category</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[...new Set(filteredInventory.map(item => item.category))].map(category => {
-                    const categoryItems = filteredInventory.filter(item => item.category === category)
-                    const totalValue = categoryItems.reduce((sum, item) => sum + item.totalValue, 0)
-                    const maxValue = Math.max(...[...new Set(filteredInventory.map(item => item.category))]
-                      .map(cat => filteredInventory.filter(item => item.category === cat)
-                        .reduce((sum, item) => sum + item.totalValue, 0)))
-                    const percentage = maxValue > 0 ? (totalValue / maxValue) * 100 : 0
-                    
-                    return (
-                      <div key={category} className="flex items-center justify-between">
-                        <span className="text-sm">{category}</span>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-20 bg-muted rounded-full h-2">
-                            <div 
-                              className="h-2 rounded-full bg-blue-500"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium w-16">${totalValue.toFixed(0)}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Operations Quick Actions */}
+          <div className="mt-2">
+            {/* Three operations cards: IN, OUT, RETURN */}
+            {/* These open the OperationsForm preconfigured */}
+            <OperationsCards autoOpenType={autoStockType} />
           </div>
-        </TabsContent>
-      </Tabs>
 
-      {/* Add Item Dialog */}
-      <AddItemDialog 
-        isOpen={isAddDialogOpen}
-        onClose={() => setIsAddDialogOpen(false)}
-        onItemAdded={async (newItem) => {
-          // Convert InventoryItem to ProductInsert
-          const productData = {
-            sku: newItem.sku,
-            name: newItem.name,
-            description: newItem.description,
-            unit_of_measure: newItem.unit,
-            current_stock: newItem.currentStock,
-            min_stock_level: newItem.minLevel,
-            max_stock_level: newItem.maxLevel,
-            supplier: newItem.supplier,
-            is_active: true
-          }
-          
-          const success = await createProduct(productData)
-          if (success) {
-            toast.success('Product added successfully')
-            setIsAddDialogOpen(false)
-          } else {
-            toast.error('Failed to add product')
-          }
-        }}
-      />
+          {/* Stats Cards */}
+          <InventoryStats stats={stats} loading={loading} />
 
-      {/* Product Details Modal */}
-      <ProductDetailsModal
-        productId={selectedProductId}
-        isOpen={isProductModalOpen}
-        onClose={() => {
-          setIsProductModalOpen(false)
-          setSelectedProductId(null)
-        }}
-        onProductUpdate={handleProductUpdate}
-      />
+          {/* Filters */}
+          <InventoryFilters 
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            inventory={products.map(productToInventoryItem)}
+          />
+
+          {/* Main Content */}
+          <Tabs defaultValue="table" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="table">Table View</TabsTrigger>
+              <TabsTrigger value="cards">Card View</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="table" className="space-y-4">
+              {loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Loading products...</span>
+                </div>
+              ) : (
+                <InventoryTable 
+                  inventory={filteredInventory}
+                  selectedItems={selectedItems}
+                  onSelectedItemsChange={setSelectedItems}
+                  onRowClick={handleRowClick}
+                  onItemUpdate={async (itemId, updates) => {
+                    // Convert InventoryItem updates back to ProductUpdate
+                    const productUpdates = {
+                      name: updates.name,
+                      sku: updates.sku,
+                      description: updates.description,
+                      current_stock: updates.currentStock,
+                      min_stock_level: updates.minLevel,
+                      max_stock_level: updates.maxLevel,
+                      unit_of_measure: updates.unit,
+                      supplier: updates.supplier
+                    }
+                    
+                    const success = await updateProduct(itemId, productUpdates)
+                    if (success) {
+                      toast.success('Product updated successfully')
+                    } else {
+                      toast.error('Failed to update product')
+                    }
+                  }}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="cards" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredInventory.map((item) => (
+                  <Card 
+                    key={item.id} 
+                    className="relative cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => handleRowClick(item.id)}
+                  >
+                    {/* Product Image */}
+                    <div className="aspect-video bg-muted/30 rounded-t-lg overflow-hidden">
+                      {item.imageUrl ? (
+                        <>
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover transition-transform hover:scale-105"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              const fallback = target.nextElementSibling as HTMLElement
+                              if (fallback) fallback.style.display = 'flex'
+                            }}
+                          />
+                          <div className="hidden w-full h-full flex items-center justify-center">
+                            <div className="text-center text-muted-foreground">
+                              <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">No image</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="text-center text-muted-foreground">
+                            <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No image</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <CardTitle className="text-lg truncate">{item.name}</CardTitle>
+                          <CardDescription className="truncate">
+                            {item.sku} • {item.category}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={
+                          item.status === 'in-stock' ? 'default' :
+                          item.status === 'low-stock' ? 'secondary' :
+                          item.status === 'out-of-stock' ? 'destructive' : 'outline'
+                        } className="ml-2 shrink-0">
+                          {item.status.replace('-', ' ')}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Stock</p>
+                          <p className="font-medium">{item.currentStock} {item.unit}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Value</p>
+                          <p className="font-medium">${item.totalValue.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Location</p>
+                          <p className="font-medium truncate">{item.location}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Unit Price</p>
+                          <p className="font-medium">${item.unitPrice.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Supplier and Description */}
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Supplier</p>
+                          <p className="font-medium truncate">{item.supplier}</p>
+                        </div>
+                        {item.description && (
+                          <div>
+                            <p className="text-muted-foreground">Description</p>
+                            <p className="text-xs text-muted-foreground overflow-hidden" style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical' as const
+                            }}>
+                              {item.description}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags.slice(0, 3).map(tag => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {item.tags.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{item.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Stock Status Distribution</CardTitle>
+                    <CardDescription>Items by stock status</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {['in-stock', 'low-stock', 'out-of-stock'].map(status => {
+                        const count = filteredInventory.filter(item => item.status === status).length
+                        const percentage = filteredInventory.length > 0 ? (count / filteredInventory.length) * 100 : 0
+                        
+                        return (
+                          <div key={status} className="flex items-center justify-between">
+                            <span className="capitalize text-sm">{status.replace('-', ' ')}</span>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-20 bg-muted rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${
+                                    status === 'in-stock' ? 'bg-green-500' :
+                                    status === 'low-stock' ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium w-8">{count}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Value by Category</CardTitle>
+                    <CardDescription>Total inventory value by category</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[...new Set(filteredInventory.map(item => item.category))].map(category => {
+                        const categoryItems = filteredInventory.filter(item => item.category === category)
+                        const totalValue = categoryItems.reduce((sum, item) => sum + item.totalValue, 0)
+                        const maxValue = Math.max(...[...new Set(filteredInventory.map(item => item.category))]
+                          .map(cat => filteredInventory.filter(item => item.category === cat)
+                            .reduce((sum, item) => sum + item.totalValue, 0)))
+                        const percentage = maxValue > 0 ? (totalValue / maxValue) * 100 : 0
+                        
+                        return (
+                          <div key={category} className="flex items-center justify-between">
+                            <span className="text-sm">{category}</span>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-20 bg-muted rounded-full h-2">
+                                <div 
+                                  className="h-2 rounded-full bg-blue-500"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium w-16">${totalValue.toFixed(0)}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Add Item Dialog */}
+          <AddItemDialog 
+            isOpen={isAddDialogOpen}
+            onClose={() => setIsAddDialogOpen(false)}
+            onItemAdded={async (newItem) => {
+              // Product is already created by AddItemDialog, just refresh the data
+              await refresh()
+              setIsAddDialogOpen(false)
+              // Toast is already shown by AddItemDialog
+            }}
+          />
+
+          {/* Product Details Modal */}
+          <ProductDetailsModal
+            productId={selectedProductId}
+            isOpen={isProductModalOpen}
+            onClose={() => {
+              setIsProductModalOpen(false)
+              setSelectedProductId(null)
+            }}
+            onProductUpdate={handleProductUpdate}
+          />
+        </>
+      )}
     </div>
   )
 }

@@ -48,13 +48,13 @@ export function OperationsView() {
         const txJson = await txRes.json()
         const txs = (txJson.transactions || []).map((t: any) => ({
           id: t.id,
-          type: (t.type || 'IN') as 'IN' | 'OUT' | 'RETURN',
-          product: t.product || 'Unknown',
+          type: (t.transaction_type || 'IN') as 'IN' | 'OUT' | 'RETURN',
+          product: t.product_name || t.name || 'Unknown',
           quantity: t.quantity || 0,
-          project: t.project || 'No Project',
-          timestamp: t.timestamp ? new Date(t.timestamp) : new Date(),
-          user: t.user || 'Unknown',
-          status: 'completed' as const,
+          project: t.project_name || 'No Project',
+          timestamp: t.transaction_date ? new Date(t.transaction_date) : new Date(),
+          user: t.transaction_done_by || 'Unknown',
+          status: (t.status || 'completed') as 'completed' | 'pending' | 'cancelled',
         })) as StockMovement[]
         setRecentTransactions(txs)
 

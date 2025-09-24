@@ -32,14 +32,12 @@ interface AddVendorDialogProps {
   isOpen: boolean
   onClose: () => void
   onVendorAdded: () => void
-  categories: string[]
 }
 
 export function AddVendorDialog({
   isOpen,
   onClose,
-  onVendorAdded,
-  categories
+  onVendorAdded
 }: AddVendorDialogProps) {
   const [formData, setFormData] = useState({
     name: '',

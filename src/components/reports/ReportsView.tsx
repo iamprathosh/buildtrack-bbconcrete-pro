@@ -1,518 +1,153 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DatePickerWithRange } from '@/components/ui/date-range-picker'
-import { ReportsFilters } from './ReportsFilters'
-import { ReportDetailDialog } from './ReportDetailDialog'
+import { ReportsFilters, FilterOptions } from './ReportsFilters'
+import { ReportsDataTable, ReportDataRow } from './ReportsDataTable'
 import { useUser } from '@clerk/nextjs'
-import { format } from 'date-fns'
-import { DateRange } from 'react-day-picker'
-import { 
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Calendar,
-  Users,
-  Building2,
-  FileText,
-  Download,
-  RefreshCw,
-  PieChart,
-  LineChart
-} from 'lucide-react'
-
-interface ReportData {
-  id: string
-  name: string
-  type: 'financial' | 'project' | 'inventory' | 'procurement' | 'custom'
-  description: string
-  lastUpdated: string
-  status: 'ready' | 'generating' | 'error'
-  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'custom'
-  data?: any
-}
-
-interface AnalyticsData {
-  totalProjects: number
-  activeProjects: number
-  completedProjects: number
-  totalRevenue: number
-  totalCosts: number
-  profitMargin: number
-  inventoryValue: number
-  pendingOrders: number
-  monthlyTrend: Array<{
-    month: string
-    revenue: number
-    costs: number
-    projects: number
-  }>
-  onHoldProjects?: number
-  cancelledProjects?: number
-  totalTasks?: number
-  completedTasks?: number
-  averageProjectDuration?: number
-  categoryBreakdown?: Record<string, number>
-  efficiencyRatio?: number
-}
+import { toast } from 'sonner'
 
 export function ReportsView() {
   const { user } = useUser()
-  const [reports, setReports] = useState<ReportData[]>([])
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [selectedTimeRange, setSelectedTimeRange] = useState<DateRange | undefined>()
-  const [selectedReportType, setSelectedReportType] = useState<string>('all')
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
+  const [filters, setFilters] = useState<FilterOptions>({
+    startDate: undefined,
+    endDate: undefined,
+    category: 'all'
+  })
+  const [data, setData] = useState<ReportDataRow[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Fetch real data from API
+  // Fetch data when filters change
   useEffect(() => {
-    fetchReportsData()
-  }, [])
+    fetchReportData()
+  }, [filters])
 
-  // Re-fetch when filters change
-  useEffect(() => {
-    fetchReportsData()
-  }, [selectedTimeRange, selectedReportType, selectedCategory, selectedStatus])
-
-  const fetchReportsData = async () => {
-    setLoading(true)
+  const fetchReportData = async () => {
+    setIsLoading(true)
     try {
-      const searchParams = new URLSearchParams({ type: 'overview' })
+      const searchParams = new URLSearchParams()
       
-      if (selectedTimeRange?.from) {
-        searchParams.append('from', selectedTimeRange.from.toISOString())
+      if (filters.startDate) {
+        searchParams.append('startDate', filters.startDate.toISOString().split('T')[0])
       }
-      if (selectedTimeRange?.to) {
-        searchParams.append('to', selectedTimeRange.to.toISOString())
+      if (filters.endDate) {
+        searchParams.append('endDate', filters.endDate.toISOString().split('T')[0])
+      }
+      if (filters.category !== 'all') {
+        searchParams.append('category', filters.category)
       }
 
       const response = await fetch(`/api/reports?${searchParams.toString()}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch reports data')
+        throw new Error('Failed to fetch report data')
       }
 
-      const data = await response.json()
-      setAnalytics(data.analytics)
-      
-      // Filter reports based on selected filters
-      let filteredReports = data.reports || []
-      
-      if (selectedReportType !== 'all') {
-        filteredReports = filteredReports.filter((report: ReportData) => report.type === selectedReportType)
-      }
-      
-      if (selectedStatus !== 'all') {
-        filteredReports = filteredReports.filter((report: ReportData) => report.status === selectedStatus)
-      }
-      
-      setReports(filteredReports)
+      const result = await response.json()
+      setData(result.data || [])
     } catch (error) {
-      console.error('Error fetching reports data:', error)
-      // Set some fallback data or show error state
-      setAnalytics(null)
-      setReports([])
+      console.error('Error fetching report data:', error)
+      toast.error('Failed to fetch report data')
+      setData([])
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const handleFiltersChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters)
   }
 
-  const getReportTypeColor = (type: ReportData['type']) => {
-    const colors = {
-      'financial': 'bg-green-100 text-green-800',
-      'project': 'bg-blue-100 text-blue-800',
-      'inventory': 'bg-orange-100 text-orange-800',
-      'procurement': 'bg-purple-100 text-purple-800',
-      'custom': 'bg-gray-100 text-gray-800'
+  const handleExportCSV = () => {
+    if (data.length === 0) {
+      toast.error('No data to export')
+      return
     }
-    return colors[type]
-  }
 
-  const getStatusIcon = (status: ReportData['status']) => {
-    switch (status) {
-      case 'ready':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Ready</Badge>
-      case 'generating':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-          Generating
-        </Badge>
-      case 'error':
-        return <Badge variant="destructive">Error</Badge>
+    try {
+      // Create CSV content
+      const headers = [
+        'Type',
+        'Name', 
+        'Description',
+        'Date',
+        'Quantity',
+        'Unit',
+        'Cost',
+        'Status',
+        'Maintenance Status',
+        'Location/Project',
+        'Category',
+        'Created At'
+      ]
+
+      const csvContent = [
+        headers.join(','),
+        ...data.map(row => [
+          row.type,
+          `"${row.name}"`,
+          `"${row.description || ''}"`,
+          row.date,
+          row.quantity || '',
+          row.unit || '',
+          row.cost || '',
+          row.status,
+          row.maintenanceStatus || '',
+          `"${row.location || row.project || ''}"`,
+          row.category || '',
+          row.createdAt
+        ].join(','))
+      ].join('\n')
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      
+      // Generate filename with timestamp and filter info
+      const timestamp = new Date().toISOString().split('T')[0]
+      const categoryText = filters.category !== 'all' ? `_${filters.category}` : ''
+      const dateRange = filters.startDate && filters.endDate 
+        ? `_${filters.startDate.toISOString().split('T')[0]}_to_${filters.endDate.toISOString().split('T')[0]}`
+        : filters.startDate 
+        ? `_from_${filters.startDate.toISOString().split('T')[0]}`
+        : filters.endDate
+        ? `_to_${filters.endDate.toISOString().split('T')[0]}`
+        : ''
+      
+      link.setAttribute('download', `buildtrack_report${categoryText}${dateRange}_${timestamp}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('CSV export completed successfully')
+    } catch (error) {
+      console.error('Error exporting CSV:', error)
+      toast.error('Failed to export CSV')
     }
   }
 
-  const handleGenerateReport = (reportId: string) => {
-    setIsGenerating(true)
-    // Simulate report generation
-    setTimeout(() => {
-      setReports(prev => prev.map(report => 
-        report.id === reportId 
-          ? { ...report, status: 'ready' as const, lastUpdated: new Date().toISOString() }
-          : report
-      ))
-      setIsGenerating(false)
-    }, 2000)
+  const handleRefresh = () => {
+    fetchReportData()
+    toast.success('Data refreshed')
   }
-
-  const handleViewReport = (reportId: string) => {
-    setSelectedReportId(reportId)
-    setIsReportDialogOpen(true)
-  }
-
-  const handleCloseReportDialog = () => {
-    setIsReportDialogOpen(false)
-    setSelectedReportId(null)
-  }
-
-  const handleClearFilters = () => {
-    setSelectedTimeRange(undefined)
-    setSelectedReportType('all')
-    setSelectedCategory('all')
-    setSelectedStatus('all')
-  }
-
-  const filteredReports = reports // Reports are already filtered in fetchReportsData
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Filters Section */}
       <ReportsFilters
-        selectedDateRange={selectedTimeRange}
-        selectedReportType={selectedReportType}
-        selectedCategory={selectedCategory}
-        selectedStatus={selectedStatus}
-        onDateRangeChange={setSelectedTimeRange}
-        onReportTypeChange={setSelectedReportType}
-        onCategoryChange={setSelectedCategory}
-        onStatusChange={setSelectedStatus}
-        onClearFilters={handleClearFilters}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        onExportCSV={handleExportCSV}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
       />
 
-      {/* Analytics Overview */}
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-muted-foreground">Loading analytics...</span>
-        </div>
-      ) : analytics && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 w-full max-w-full">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(analytics.totalRevenue)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                +12.5% from last quarter
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{analytics.profitMargin}%</div>
-              <p className="text-xs text-muted-foreground">
-                +2.1% from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-              <Building2 className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {analytics.activeProjects}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {analytics.totalProjects} total projects
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
-              <BarChart3 className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {formatCurrency(analytics.inventoryValue)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {analytics.pendingOrders} pending orders
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <Tabs defaultValue="reports" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="custom">Custom Reports</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="reports" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 w-full max-w-full">
-            {filteredReports.map((report) => (
-              <Card key={report.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{report.name}</CardTitle>
-                      <CardDescription>{report.description}</CardDescription>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${getReportTypeColor(report.type)}`}>
-                        {report.type}
-                      </span>
-                      {getStatusIcon(report.status)}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Last updated: {format(report.lastUpdated, 'MMM dd, yyyy')}</span>
-                      <span>Frequency: {report.frequency}</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      {report.status === 'ready' && (
-                        <>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleViewReport(report.id)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            View Report
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => fetchReportsData()}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Refresh
-                          </Button>
-                        </>
-                      )}
-                      {report.status === 'error' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleGenerateReport(report.id)}
-                          disabled={isGenerating}
-                        >
-                          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                          Regenerate
-                        </Button>
-                      )}
-                      {report.status === 'generating' && (
-                        <Button size="sm" disabled>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Generating...
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          {analytics && (
-            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 w-full max-w-full">
-              {/* Monthly Trend Chart Placeholder */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <LineChart className="h-5 w-5" />
-                    Monthly Performance Trend
-                  </CardTitle>
-                  <CardDescription>Revenue, costs, and project completion over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80 flex items-center justify-center bg-muted/20 rounded-lg">
-                    <div className="text-center">
-                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-lg font-medium text-muted-foreground">Chart Placeholder</p>
-                      <p className="text-sm text-muted-foreground">Interactive chart would be rendered here</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Project Status Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5" />
-                    Project Status Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Completed</span>
-                      <span className="text-sm font-medium">{analytics.completedProjects}</span>
-                    </div>
-                    <Progress value={(analytics.completedProjects / analytics.totalProjects) * 100} className="h-2" />
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Active</span>
-                      <span className="text-sm font-medium">{analytics.activeProjects}</span>
-                    </div>
-                    <Progress value={(analytics.activeProjects / analytics.totalProjects) * 100} className="h-2" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Cost Breakdown */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Cost Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Total Revenue</span>
-                      <span className="font-medium text-green-600">
-                        {formatCurrency(analytics.totalRevenue)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Total Costs</span>
-                      <span className="font-medium text-red-600">
-                        {formatCurrency(analytics.totalCosts)}
-                      </span>
-                    </div>
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Net Profit</span>
-                        <span className="font-medium text-green-600">
-                          {formatCurrency(analytics.totalRevenue - analytics.totalCosts)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="custom" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Custom Report Builder</CardTitle>
-              <CardDescription>Create customized reports based on your specific needs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Report Name</label>
-                    <input 
-                      type="text" 
-                      className="w-full p-2 border rounded-md" 
-                      placeholder="Enter report name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Report Type</label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="financial">Financial Analysis</SelectItem>
-                        <SelectItem value="project">Project Performance</SelectItem>
-                        <SelectItem value="inventory">Inventory Report</SelectItem>
-                        <SelectItem value="custom">Custom Query</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-                  <Card className="p-4 cursor-pointer hover:bg-muted/50">
-                    <div className="text-center">
-                      <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                      <h3 className="font-medium">Financial Report</h3>
-                      <p className="text-xs text-muted-foreground">Revenue, costs, profit analysis</p>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 cursor-pointer hover:bg-muted/50">
-                    <div className="text-center">
-                      <Building2 className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                      <h3 className="font-medium">Project Report</h3>
-                      <p className="text-xs text-muted-foreground">Timeline, budget, completion</p>
-                    </div>
-                  </Card>
-                  
-                  <Card className="p-4 cursor-pointer hover:bg-muted/50">
-                    <div className="text-center">
-                      <BarChart3 className="h-8 w-8 mx-auto mb-2 text-orange-600" />
-                      <h3 className="font-medium">Inventory Report</h3>
-                      <p className="text-xs text-muted-foreground">Stock levels, valuation, trends</p>
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline">Preview</Button>
-                  <Button>Create Report</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      {/* Report Detail Dialog */}
-      <ReportDetailDialog
-        reportId={selectedReportId}
-        isOpen={isReportDialogOpen}
-        onClose={handleCloseReportDialog}
-        displayMode="dialog"
+      {/* Data Table Section */}
+      <ReportsDataTable
+        data={data}
+        isLoading={isLoading}
+        category={filters.category}
       />
     </div>
   )

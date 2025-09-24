@@ -44,7 +44,7 @@ interface ProjectsTableProps {
   onProjectUpdate: (projectId: string, updates: Partial<Project>) => void
 }
 
-type SortField = 'name' | 'status' | 'priority' | 'startDate' | 'endDate' | 'budget' | 'progress' | 'manager'
+type SortField = 'name' | 'status' | 'priority' | 'startDate' | 'endDate' | 'budget' | 'progress'
 type SortDirection = 'asc' | 'desc'
 
 export function ProjectsTable({ 
@@ -180,9 +180,6 @@ export function ProjectsTable({
                 <SortButton field="progress">Progress</SortButton>
               </TableHead>
               <TableHead>
-                <SortButton field="manager">Manager</SortButton>
-              </TableHead>
-              <TableHead>
                 <SortButton field="budget">Budget</SortButton>
               </TableHead>
               <TableHead>
@@ -242,9 +239,6 @@ export function ProjectsTable({
                     </div>
                     <Progress value={project.progress} className="h-2" />
                   </div>
-                </TableCell>
-                <TableCell className="font-medium">
-                  {project.manager}
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">

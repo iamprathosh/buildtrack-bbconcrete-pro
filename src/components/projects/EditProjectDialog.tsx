@@ -113,11 +113,17 @@ export function EditProjectDialog({
       return
     }
 
+    // Normalize sentinel values before sending to backend
+    const normalizedValues: ProjectFormValues = {
+      ...values,
+      manager: values.manager === 'none' ? '' : values.manager,
+    }
+
     setLoading(true)
     try {
       console.log('EditProjectDialog: Calling onProjectUpdate')
       await onProjectUpdate(project.id, {
-        ...values,
+        ...normalizedValues,
         lastUpdated: new Date(),
       })
       console.log('EditProjectDialog: Update successful, closing dialog')
@@ -249,7 +255,7 @@ export function EditProjectDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem key="no-manager" value="">No Manager Assigned</SelectItem>
+                        <SelectItem key="no-manager" value="none">No Manager Assigned</SelectItem>
                         {users.length > 0 ? (
                           users
                             .filter((user, index, arr) => arr.findIndex(u => u.id === user.id) === index)

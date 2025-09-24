@@ -1,20 +1,20 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database, DatabaseResult } from '@/types/database'
-import { supabase, dbUtils } from '@/lib/database'
+import { Database } from '@/types/database'
+import { supabaseServer, dbUtilsServer, DatabaseResult } from '@/lib/database-server'
 
 // Base service class for consistent database operations
 export abstract class BaseService {
   protected client: SupabaseClient<Database>
 
   constructor() {
-    this.client = supabase
+    this.client = supabaseServer
   }
 
   // Safe query execution with error handling
   protected async safeQuery<T>(
     queryFn: (client: SupabaseClient<Database>) => Promise<any>
   ): Promise<DatabaseResult<T>> {
-    return dbUtils.safeQuery<T>(queryFn)
+    return dbUtilsServer.safeQuery<T>(queryFn)
   }
 
   // Get all records from a table
@@ -106,11 +106,11 @@ export abstract class BaseService {
 
   // Validate required fields before database operations
   protected validateRequired(data: Record<string, any>, requiredFields: string[]): void {
-    dbUtils.validateRequired(data, requiredFields)
+    dbUtilsServer.validateRequired(data, requiredFields)
   }
 
   // Format date for database storage
   protected formatDate(date: Date | string | null): string | null {
-    return dbUtils.formatDate(date)
+    return dbUtilsServer.formatDate(date)
   }
 }

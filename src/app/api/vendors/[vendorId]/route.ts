@@ -525,28 +525,64 @@ export async function PATCH(
       })
     }
 
-    // Handle direct status update
-    if (data.status && data.status !== currentVendor.status) {
-      if (!isValidStatusTransition(currentVendor.status, data.status)) {
-        return NextResponse.json({
-          error: `Cannot change status from ${currentVendor.status} to ${data.status}`
-        }, { status: 400 })
+    // Handle full vendor update (similar to PUT but without requiring all fields)
+    if (!data.action) {
+      // Validate email format if provided
+      if (data.contact?.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(data.contact.email)) {
+          return NextResponse.json(
+            { error: 'Please provide a valid email address' },
+            { status: 400 }
+          )
+        }
       }
 
-      mockVendors[vendorIndex] = {
+      // Validate status transition if status is being changed
+      if (data.status && data.status !== currentVendor.status) {
+        if (!isValidStatusTransition(currentVendor.status, data.status)) {
+          return NextResponse.json({
+            error: `Cannot change status from ${currentVendor.status} to ${data.status}`
+          }, { status: 400 })
+        }
+      }
+
+      // Update vendor with provided data
+      const updatedVendor: Vendor = {
         ...currentVendor,
-        status: data.status,
+        ...(data.name && { name: data.name }),
+        ...(data.type && { type: data.type }),
+        ...(data.category && { category: data.category }),
+        ...(data.status && { status: data.status }),
+        ...(data.rating !== undefined && { rating: data.rating }),
+        contact: {
+          ...currentVendor.contact,
+          ...(data.contact || {})
+        },
+        business: {
+          ...currentVendor.business,
+          ...(data.business || {})
+        },
+        performance: {
+          ...currentVendor.performance,
+          ...(data.performance || {}),
+          ...(data.rating !== undefined && { qualityRating: data.rating })
+        },
+        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.tags && { tags: data.tags }),
         lastUpdated: new Date().toISOString()
       }
 
+      mockVendors[vendorIndex] = updatedVendor
+
       return NextResponse.json({
-        vendor: mockVendors[vendorIndex],
-        message: 'Vendor status updated successfully'
+        vendor: updatedVendor,
+        message: 'Vendor updated successfully'
       })
     }
 
     return NextResponse.json({
-      error: 'No valid update action provided'
+      error: 'No valid update provided'
     }, { status: 400 })
 
   } catch (error) {

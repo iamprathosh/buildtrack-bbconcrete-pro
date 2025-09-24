@@ -314,7 +314,7 @@ export type Database = {
           sku: string
           name: string
           description: string | null
-          category_id: string | null
+          category: string | null
           unit_of_measure: string
           current_stock: number | null
           min_stock_level: number | null
@@ -325,6 +325,12 @@ export type Database = {
           supplier: string | null
           image_url: string | null
           is_active: boolean | null
+          created_by: string | null
+          created_by_id: string | null
+          created_by_email: string | null
+          updated_by: string | null
+          updated_by_id: string | null
+          updated_by_email: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -333,7 +339,7 @@ export type Database = {
           sku: string
           name: string
           description?: string | null
-          category_id?: string | null
+          category?: string | null
           unit_of_measure: string
           current_stock?: number | null
           min_stock_level?: number | null
@@ -344,6 +350,12 @@ export type Database = {
           supplier?: string | null
           image_url?: string | null
           is_active?: boolean | null
+          created_by?: string | null
+          created_by_id?: string | null
+          created_by_email?: string | null
+          updated_by?: string | null
+          updated_by_id?: string | null
+          updated_by_email?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -352,7 +364,7 @@ export type Database = {
           sku?: string
           name?: string
           description?: string | null
-          category_id?: string | null
+          category?: string | null
           unit_of_measure?: string
           current_stock?: number | null
           min_stock_level?: number | null
@@ -363,28 +375,14 @@ export type Database = {
           supplier?: string | null
           image_url?: string | null
           is_active?: boolean | null
+          created_by?: string | null
+          created_by_id?: string | null
+          created_by_email?: string | null
+          updated_by?: string | null
+          updated_by_id?: string | null
+          updated_by_email?: string | null
           created_at?: string | null
           updated_at?: string | null
-        }
-      }
-      product_categories: {
-        Row: {
-          id: string
-          name: string
-          description: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          description?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          description?: string | null
-          created_at?: string | null
         }
       }
       inventory_locations: {
@@ -461,6 +459,128 @@ export type Database = {
           transaction_date?: string | null
           notes?: string | null
           created_at?: string | null
+        }
+      }
+      inventory_transactions: {
+        Row: {
+          id: string
+          transaction_type: 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT' | 'TRANSFER' | 'DAMAGED' | 'EXPIRED'
+          transaction_number: string | null
+          reference_number: string | null
+          product_id: string
+          quantity: number
+          unit_cost: number | null
+          total_value: number | null
+          from_location_id: string | null
+          from_location_name: string | null
+          to_location_id: string | null
+          to_location_name: string | null
+          project_id: string | null
+          project_name: string | null
+          transaction_done_by: string
+          transaction_done_by_id: string | null
+          transaction_done_by_email: string | null
+          approved_by: string | null
+          approved_by_id: string | null
+          approved_at: string | null
+          approval_required: boolean | null
+          stock_before: number | null
+          stock_after: number | null
+          batch_number: string | null
+          serial_numbers: string[] | null
+          expiry_date: string | null
+          notes: string | null
+          reason: string | null
+          attachments: any | null
+          transaction_date: string
+          created_at: string
+          updated_at: string
+          status: 'pending' | 'completed' | 'cancelled' | 'reversed'
+          reversed_by_transaction_id: string | null
+          external_system_id: string | null
+          external_system_name: string | null
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          transaction_type: 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT' | 'TRANSFER' | 'DAMAGED' | 'EXPIRED'
+          transaction_number?: string | null
+          reference_number?: string | null
+          product_id: string
+          quantity: number
+          unit_cost?: number | null
+          total_value?: number | null
+          from_location_id?: string | null
+          from_location_name?: string | null
+          to_location_id?: string | null
+          to_location_name?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          transaction_done_by: string
+          transaction_done_by_id?: string | null
+          transaction_done_by_email?: string | null
+          approved_by?: string | null
+          approved_by_id?: string | null
+          approved_at?: string | null
+          approval_required?: boolean | null
+          stock_before?: number | null
+          stock_after?: number | null
+          batch_number?: string | null
+          serial_numbers?: string[] | null
+          expiry_date?: string | null
+          notes?: string | null
+          reason?: string | null
+          attachments?: any | null
+          transaction_date?: string
+          created_at?: string
+          updated_at?: string
+          status?: 'pending' | 'completed' | 'cancelled' | 'reversed'
+          reversed_by_transaction_id?: string | null
+          external_system_id?: string | null
+          external_system_name?: string | null
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          transaction_type?: 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT' | 'TRANSFER' | 'DAMAGED' | 'EXPIRED'
+          transaction_number?: string | null
+          reference_number?: string | null
+          product_id?: string
+          quantity?: number
+          unit_cost?: number | null
+          total_value?: number | null
+          from_location_id?: string | null
+          from_location_name?: string | null
+          to_location_id?: string | null
+          to_location_name?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          transaction_done_by?: string
+          transaction_done_by_id?: string | null
+          transaction_done_by_email?: string | null
+          approved_by?: string | null
+          approved_by_id?: string | null
+          approved_at?: string | null
+          approval_required?: boolean | null
+          stock_before?: number | null
+          stock_after?: number | null
+          batch_number?: string | null
+          serial_numbers?: string[] | null
+          expiry_date?: string | null
+          notes?: string | null
+          reason?: string | null
+          attachments?: any | null
+          transaction_date?: string
+          created_at?: string
+          updated_at?: string
+          status?: 'pending' | 'completed' | 'cancelled' | 'reversed'
+          reversed_by_transaction_id?: string | null
+          external_system_id?: string | null
+          external_system_name?: string | null
+          created_by?: string | null
+          updated_by?: string | null
         }
       }
       equipment: {
@@ -621,7 +741,6 @@ export type Customer = Database['public']['Tables']['customers']['Row']
 export type Project = Database['public']['Tables']['projects']['Row']
 export type Vendor = Database['public']['Tables']['vendors']['Row']
 export type Product = Database['public']['Tables']['products']['Row']
-export type ProductCategory = Database['public']['Tables']['product_categories']['Row']
 export type InventoryLocation = Database['public']['Tables']['inventory_locations']['Row']
 export type StockTransaction = Database['public']['Tables']['stock_transactions']['Row']
 export type Equipment = Database['public']['Tables']['equipment']['Row']
@@ -633,7 +752,6 @@ export type CustomerInsert = Database['public']['Tables']['customers']['Insert']
 export type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 export type VendorInsert = Database['public']['Tables']['vendors']['Insert']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
-export type ProductCategoryInsert = Database['public']['Tables']['product_categories']['Insert']
 export type InventoryLocationInsert = Database['public']['Tables']['inventory_locations']['Insert']
 export type StockTransactionInsert = Database['public']['Tables']['stock_transactions']['Insert']
 export type EquipmentInsert = Database['public']['Tables']['equipment']['Insert']
@@ -645,7 +763,6 @@ export type CustomerUpdate = Database['public']['Tables']['customers']['Update']
 export type ProjectUpdate = Database['public']['Tables']['projects']['Update']
 export type VendorUpdate = Database['public']['Tables']['vendors']['Update']
 export type ProductUpdate = Database['public']['Tables']['products']['Update']
-export type ProductCategoryUpdate = Database['public']['Tables']['product_categories']['Update']
 export type InventoryLocationUpdate = Database['public']['Tables']['inventory_locations']['Update']
 export type StockTransactionUpdate = Database['public']['Tables']['stock_transactions']['Update']
 export type EquipmentUpdate = Database['public']['Tables']['equipment']['Update']
