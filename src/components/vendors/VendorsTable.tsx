@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Vendor } from './VendorsView'
+import { VendorDetailDialog } from './VendorDetailDialog'
+import { EditVendorDialog } from './EditVendorDialog'
 import {
   Table,
   TableBody,
@@ -56,6 +58,8 @@ export function VendorsTable({
 }: VendorsTableProps) {
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [detailDialogVendor, setDetailDialogVendor] = useState<Vendor | null>(null)
+  const [editDialogVendor, setEditDialogVendor] = useState<Vendor | null>(null)
 
   const handleVendorAction = async (vendorId: string, action: string) => {
     try {
@@ -213,7 +217,7 @@ export function VendorsTable({
   }
 
   if (vendors.length === 0) {
-    return (
+    const emptyContent = (
       <Card>
         <CardContent className="flex items-center justify-center py-10">
           <div className="text-center">
@@ -226,9 +230,37 @@ export function VendorsTable({
         </CardContent>
       </Card>
     )
+    
+    return (
+      <>
+        {emptyContent}
+        
+        {/* Detail Dialog */}
+        <VendorDetailDialog
+          vendor={detailDialogVendor}
+          isOpen={!!detailDialogVendor}
+          onClose={() => setDetailDialogVendor(null)}
+          onEdit={(vendor) => {
+            setDetailDialogVendor(null)
+            setEditDialogVendor(vendor)
+          }}
+        />
+
+        {/* Edit Dialog */}
+        <EditVendorDialog
+          vendor={editDialogVendor}
+          isOpen={!!editDialogVendor}
+          onClose={() => setEditDialogVendor(null)}
+          onVendorUpdated={() => {
+            onVendorUpdate()
+            setEditDialogVendor(null)
+          }}
+        />
+      </>
+    )
   }
 
-  return (
+  const content = (
     <Card>
       <CardHeader>
         <CardTitle>Vendor Directory</CardTitle>
@@ -345,11 +377,11 @@ export function VendorsTable({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setDetailDialogVendor(vendor)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditDialogVendor(vendor)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Vendor
                               </DropdownMenuItem>
@@ -533,5 +565,33 @@ export function VendorsTable({
         </div>
       </CardContent>
     </Card>
+  )
+
+  return (
+    <>
+      {content}
+      
+      {/* Detail Dialog */}
+      <VendorDetailDialog
+        vendor={detailDialogVendor}
+        isOpen={!!detailDialogVendor}
+        onClose={() => setDetailDialogVendor(null)}
+        onEdit={(vendor) => {
+          setDetailDialogVendor(null)
+          setEditDialogVendor(vendor)
+        }}
+      />
+
+      {/* Edit Dialog */}
+      <EditVendorDialog
+        vendor={editDialogVendor}
+        isOpen={!!editDialogVendor}
+        onClose={() => setEditDialogVendor(null)}
+        onVendorUpdated={() => {
+          onVendorUpdate()
+          setEditDialogVendor(null)
+        }}
+      />
+    </>
   )
 }
