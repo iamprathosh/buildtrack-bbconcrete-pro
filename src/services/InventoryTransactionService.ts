@@ -313,6 +313,47 @@ export class InventoryTransactionService {
   }
 
   /**
+   * Get transactions within a date range (inclusive)
+   */
+  async getTransactionsByDateRange(
+    startISO: string,
+    endISO: string,
+    transactionTypes?: TransactionType[],
+    limit: number = 100
+  ): Promise<{ transactions: any[]; error?: string }> {
+    try {
+      let query = this.supabase
+        .from('inventory_transactions')
+        .select(`
+          *,
+          product:products(name, sku, unit_of_measure),
+          project:projects(name)
+        `)
+        .gte('transaction_date', startISO)
+        .lte('transaction_date', endISO)
+        .order('transaction_date', { ascending: false })
+        .limit(limit)
+
+      if (transactionTypes && transactionTypes.length > 0) {
+        query = query.in('transaction_type', transactionTypes)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        return { transactions: [], error: error.message }
+      }
+
+      return { transactions: data || [] }
+    } catch (error) {
+      return {
+        transactions: [],
+        error: error instanceof Error ? error.message : 'Failed to fetch transactions by date range'
+      }
+    }
+  }
+
+  /**
    * Cancel/Reverse a transaction
    */
   async reverseTransaction(

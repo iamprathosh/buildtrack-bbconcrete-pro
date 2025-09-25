@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
     const typeFilter = searchParams.get('type')
+    const todayParam = searchParams.get('today')
+    const dateParam = searchParams.get('date') // YYYY-MM-DD
     
     // Map old transaction types to new ones
     const typeMapping: Record<string, TransactionType> = {
@@ -24,10 +26,39 @@ export async function GET(request: Request) {
       ? [typeMapping[typeFilter] || typeFilter as TransactionType]
       : undefined
 
-    const { transactions, error } = await inventoryTransactionService.getRecentTransactions(
-      limit,
-      transactionTypes
-    )
+    let transactions: any[] = []
+    let error: string | undefined
+
+    // If today or specific date requested, filter on server
+    if ((todayParam && (todayParam === '1' || todayParam.toLowerCase() === 'true')) || dateParam) {
+      let start = new Date()
+      if (dateParam) {
+        const [y, m, d] = dateParam.split('-').map((v) => parseInt(v, 10))
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          start = new Date(y, (m - 1), d)
+        }
+      }
+      const startOfDay = new Date(start)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(start)
+      endOfDay.setHours(23, 59, 59, 999)
+
+      const res = await inventoryTransactionService.getTransactionsByDateRange(
+        startOfDay.toISOString(),
+        endOfDay.toISOString(),
+        transactionTypes,
+        limit
+      )
+      transactions = res.transactions
+      error = res.error
+    } else {
+      const res = await inventoryTransactionService.getRecentTransactions(
+        limit,
+        transactionTypes
+      )
+      transactions = res.transactions
+      error = res.error
+    }
 
     if (error) {
       console.error('Failed to fetch transactions:', error)

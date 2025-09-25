@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       if (isNaN(unit_cost)) unit_cost = null
     }
 
-    // If unit_cost not provided, fall back to product.mauc so total_value is computed correctly
+    // If unit_cost not provided, fall back to product.mauc
     if (unit_cost == null) {
       const prodRes = await (supabaseServer as any)
         .from('products')
@@ -111,6 +111,7 @@ export async function POST(request: Request) {
       const status = (error.message || '').toLowerCase().includes('insufficient stock') ? 400 : 500
       return NextResponse.json({ error: error.message || 'Failed to create transaction' }, { status })
     }
+
 
     return NextResponse.json({ transaction: data, success: true })
   } catch (error) {

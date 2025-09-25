@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 import Image from 'next/image'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import {
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
   BarChart3,
   Building2,
@@ -53,9 +54,9 @@ const navigationItems = {
     { name: 'Dashboard', href: '/', icon: Home, badge: null },
   ],
   worker: [
-    { name: 'Inventory', href: '/worker/inventory', icon: Package, badge: null },
-    { name: 'Projects', href: '/worker/projects', icon: Building2, badge: null },
-    { name: 'Equipment', href: '/worker/equipment', icon: Wrench, badge: null },
+    { name: 'Inventory', href: '/inventory', icon: Package, badge: null },
+    { name: 'Projects', href: '/projects', icon: Building2, badge: null },
+    { name: 'Equipment', href: '/equipment', icon: Wrench, badge: null },
   ],
   manager: [
     { name: 'Inventory', href: '/inventory', icon: Package, badge: null },
@@ -82,6 +83,7 @@ const quickActions: any[] = []
 export function AppSidebar() {
   const pathname = usePathname()
   const { user, isLoaded } = useUser()
+  const { signOut } = useClerk()
   const { profile, loading: profileLoading } = useUserProfile()
 
   // Get user role from Supabase profile
@@ -173,24 +175,39 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/profile" className="flex items-center">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user?.imageUrl} alt={user?.firstName || 'User'} />
-                  <AvatarFallback className="rounded-lg">
-                    <Shield className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {user?.firstName || user?.emailAddresses[0]?.emailAddress}
-                  </span>
-                  <span className="truncate text-xs capitalize">
-                    {userRole}
-                  </span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg" asChild>
+                  <button className="flex items-center w-full text-left">
+                    <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage src={user?.imageUrl} alt={user?.firstName || 'User'} />
+                      <AvatarFallback className="rounded-lg">
+                        <Shield className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {user?.firstName || user?.emailAddresses[0]?.emailAddress}
+                      </span>
+                      <span className="truncate text-xs capitalize">
+                        {userRole}
+                      </span>
+                    </div>
+                  </button>
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    signOut()
+                  }}
+                >
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { createServerClient } from '@/lib/supabase-server'
 
 interface VendorContact {
   email: string
@@ -279,10 +280,57 @@ export async function GET(
     }
 
     const { vendorId } = await params
-    const vendor = mockVendors.find(v => v.id === vendorId)
-    
-    if (!vendor) {
+
+    const supabase = createServerClient()
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .single()
+
+    if (error || !data) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    const row: any = data
+    const addressParts = [
+      row.address_line_1,
+      row.address_line_2,
+      row.city,
+      row.state,
+      row.zip_code,
+      row.country,
+    ].filter(Boolean)
+    const address = addressParts.join(', ')
+
+    const vendor: Vendor = {
+      id: row.id?.toString?.() || row.id,
+      name: row.name || '',
+      type: 'other',
+      category: 'Uncategorized',
+      status: 'pending',
+      rating: 0,
+      contact: {
+        email: row.email || '',
+        phone: row.phone || '',
+        address,
+        contactPerson: row.contact_name || '',
+        title: ''
+      },
+      business: {},
+      performance: {
+        totalOrders: 0,
+        totalValue: 0,
+        avgDeliveryTime: 0,
+        onTimeDeliveryRate: 0,
+        qualityRating: 0,
+      },
+      notes: '',
+      tags: [],
+      addedDate: row.created_at || new Date().toISOString(),
+      lastUpdated: row.updated_at || row.created_at || new Date().toISOString(),
+      createdBy: undefined,
+      createdByName: undefined,
     }
 
     return NextResponse.json({ vendor })

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
+import { createServerClient } from '@/lib/supabase-server'
 
 interface VendorContact {
   email: string
@@ -320,36 +322,99 @@ export async function GET(request: NextRequest) {
       location: searchParams.get('location') || 'all',
     }
 
-    const filteredVendors = applyFilters(mockVendors, filters)
-    
+    // Read from existing vendors table
+    const supabase = createServerClient()
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+
+    if (error) {
+      console.error('Supabase vendors query error:', error)
+      return NextResponse.json({ error: 'Failed to fetch vendors' }, { status: 500 })
+    }
+
+    const allVendors = (data || []) as any[]
+
+    // Map DB rows to the UI Vendor shape safely
+    const mapRowToVendor = (row: any): Vendor => {
+      const addressParts = [
+        row.address_line_1,
+        row.address_line_2,
+        row.city,
+        row.state,
+        row.zip_code,
+        row.country,
+      ].filter(Boolean)
+      const address = addressParts.join(', ')
+
+      return {
+        id: row.id?.toString?.() || row.id,
+        name: row.name || '',
+        type: 'other',
+        category: 'Uncategorized',
+        status: 'pending',
+        rating: 0,
+        contact: {
+          email: row.email || '',
+          phone: row.phone || '',
+          address,
+          contactPerson: row.contact_name || '',
+          title: ''
+        },
+        business: {},
+        performance: {
+          totalOrders: 0,
+          totalValue: 0,
+          avgDeliveryTime: 0,
+          onTimeDeliveryRate: 0,
+          qualityRating: 0,
+        },
+        notes: '',
+        tags: [],
+        addedDate: row.created_at || new Date().toISOString(),
+        lastUpdated: row.updated_at || row.created_at || new Date().toISOString(),
+        createdBy: undefined,
+        createdByName: undefined,
+      }
+    }
+
+    const vendorsMapped = allVendors.map(mapRowToVendor)
+
+    // Apply filters in-memory to keep parity with existing UI behavior
+    const filteredVendors = applyFilters(vendorsMapped, filters)
+
     // Sort by name
     filteredVendors.sort((a, b) => a.name.localeCompare(b.name))
 
-    // Calculate statistics
+    // Calculate statistics from the full dataset
     const stats = {
-      totalVendors: mockVendors.length,
-      activeVendors: mockVendors.filter(v => v.status === 'active').length,
-      inactiveVendors: mockVendors.filter(v => v.status === 'inactive').length,
-      pendingVendors: mockVendors.filter(v => v.status === 'pending').length,
-      blacklistedVendors: mockVendors.filter(v => v.status === 'blacklisted').length,
-      totalValue: mockVendors.reduce((sum, v) => sum + v.performance.totalValue, 0),
-      avgRating: mockVendors.length > 0 ? mockVendors.reduce((sum, v) => sum + v.rating, 0) / mockVendors.length : 0,
-      topPerformers: mockVendors.filter(v => v.rating >= 4.5).length,
-      // Additional metrics
-      supplierCount: mockVendors.filter(v => v.type === 'supplier').length,
-      contractorCount: mockVendors.filter(v => v.type === 'contractor').length,
-      consultantCount: mockVendors.filter(v => v.type === 'consultant').length,
-      avgOnTimeRate: mockVendors.length > 0 
-        ? mockVendors.reduce((sum, v) => sum + v.performance.onTimeDeliveryRate, 0) / mockVendors.length 
+      totalVendors: vendorsMapped.length,
+      activeVendors: vendorsMapped.filter(v => v.status === 'active').length,
+      inactiveVendors: vendorsMapped.filter(v => v.status === 'inactive').length,
+      pendingVendors: vendorsMapped.filter(v => v.status === 'pending').length,
+      blacklistedVendors: vendorsMapped.filter(v => v.status === 'blacklisted').length,
+      totalValue: vendorsMapped.reduce((sum, v) => sum + (v.performance.totalValue || 0), 0),
+      avgRating: vendorsMapped.length > 0 ? vendorsMapped.reduce((sum, v) => sum + (v.rating || 0), 0) / vendorsMapped.length : 0,
+      topPerformers: vendorsMapped.filter(v => (v.rating || 0) >= 4.5).length,
+      supplierCount: vendorsMapped.filter(v => v.type === 'supplier').length,
+      contractorCount: vendorsMapped.filter(v => v.type === 'contractor').length,
+      consultantCount: vendorsMapped.filter(v => v.type === 'consultant').length,
+      avgOnTimeRate: vendorsMapped.length > 0 
+        ? vendorsMapped.reduce((sum, v) => sum + (v.performance.onTimeDeliveryRate || 0), 0) / vendorsMapped.length 
         : 0,
-      totalOrders: mockVendors.reduce((sum, v) => sum + v.performance.totalOrders, 0)
+      totalOrders: vendorsMapped.reduce((sum, v) => sum + (v.performance.totalOrders || 0), 0)
     }
 
     // Get unique categories and locations for filters
-    const categories = [...new Set(mockVendors.map(v => v.category))].sort()
-    const locations = [...new Set(mockVendors.map(v => 
-      v.contact.address.split(',').pop()?.trim()
-    ).filter(Boolean))].sort()
+    const categories = [...new Set(vendorsMapped.map(v => v.category).filter(Boolean))].sort()
+    const locations = [...new Set(
+      vendorsMapped
+        .map(v => (v.contact?.address || '')
+          .toString()
+          .split(',')
+          .pop()?.trim())
+        .filter(Boolean)
+    )].sort()
 
     return NextResponse.json({
       vendors: filteredVendors,
@@ -370,87 +435,76 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Use Clerk auth to get a Supabase JWT for RLS
+    const session = auth()
+    const userId = session?.userId
+    const getToken = session?.getToken
+
+    // Proceed even if no Clerk session (e.g., when RLS is disabled and grants are set)
+    const supabaseToken = getToken ? await getToken({ template: 'supabase' }) : undefined
 
     const data = await request.json()
 
-    // Validate required fields
-    const requiredFields = ['name', 'type', 'category', 'contact']
-    for (const field of requiredFields) {
-      if (!data[field]) {
-        return NextResponse.json(
-          { error: `${field} is required` },
-          { status: 400 }
-        )
+    // Validate required fields for the vendors table
+    const errors: Record<string, string> = {}
+    if (data.vendor_number === undefined || data.vendor_number === null || isNaN(Number(data.vendor_number))) {
+      errors.vendor_number = 'Vendor number is required and must be a number'
+    }
+    if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
+      errors.name = 'Name is required'
+    }
+
+    // Validate email format if provided
+    if (data.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(String(data.email))) {
+        errors.email = 'Please provide a valid email address'
       }
     }
 
-    // Validate contact fields
-    const requiredContactFields = ['email', 'phone', 'contactPerson', 'address']
-    for (const field of requiredContactFields) {
-      if (!data.contact[field]) {
-        return NextResponse.json(
-          { error: `Contact ${field} is required` },
-          { status: 400 }
-        )
-      }
+    if (Object.keys(errors).length > 0) {
+      return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 })
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(data.contact.email)) {
+    const supabase = createServerClient(supabaseToken || undefined)
+
+    const insertPayload = {
+      vendor_number: Number(data.vendor_number),
+      name: data.name,
+      address_line_1: data.address_line_1 || null,
+      address_line_2: data.address_line_2 || null,
+      city: data.city || null,
+      state: data.state || null,
+      zip_code: data.zip_code || null,
+      country: data.country || null,
+      phone: data.phone || null,
+      email: data.email || null,
+      contact_name: data.contact_name || null,
+      credit_limit: data.credit_limit || null,
+    }
+
+    const { data: vendor, error } = await supabase
+      .from('vendors')
+      .insert(insertPayload)
+      .select('*')
+      .single()
+
+    if (error) {
+      if ((error as any).code === '23505') {
+        return NextResponse.json(
+          { error: 'Vendor number already exists' },
+          { status: 409 }
+        )
+      }
+      console.error('Supabase insert error:', error)
       return NextResponse.json(
-        { error: 'Please provide a valid email address' },
-        { status: 400 }
+        { error: 'Failed to create vendor' },
+        { status: 500 }
       )
     }
 
-    // Create new vendor
-    const newVendor: Vendor = {
-      id: Date.now().toString(),
-      name: data.name,
-      type: data.type,
-      category: data.category,
-      status: data.status || 'pending',
-      rating: data.rating || 0,
-      contact: {
-        email: data.contact.email,
-        phone: data.contact.phone,
-        address: data.contact.address,
-        contactPerson: data.contact.contactPerson,
-        title: data.contact.title || ''
-      },
-      business: {
-        licenseNumber: data.business?.licenseNumber || '',
-        taxId: data.business?.taxId || '',
-        insuranceExpiry: data.business?.insuranceExpiry || undefined,
-        bondAmount: data.business?.bondAmount || undefined,
-        website: data.business?.website || ''
-      },
-      performance: {
-        totalOrders: 0,
-        totalValue: 0,
-        avgDeliveryTime: 0,
-        onTimeDeliveryRate: 0,
-        qualityRating: data.rating || 0
-      },
-      notes: data.notes || '',
-      tags: data.tags || [],
-      addedDate: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      createdBy: user.id,
-      createdByName: user.fullName || user.firstName + ' ' + user.lastName || 'Unknown User'
-    }
-
-    // In production, save to database
-    mockVendors.push(newVendor)
-
     return NextResponse.json({
-      vendor: newVendor,
+      vendor,
       message: 'Vendor created successfully'
     }, { status: 201 })
 

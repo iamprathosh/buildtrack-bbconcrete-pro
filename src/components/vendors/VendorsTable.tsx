@@ -24,7 +24,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Star,
   Phone,
   Mail,
   MapPin,
@@ -135,64 +134,6 @@ export function VendorsTable({
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'default',
-      inactive: 'secondary',
-      pending: 'outline',
-      blacklisted: 'destructive'
-    } as const
-
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      pending: 'bg-orange-100 text-orange-800',
-      blacklisted: 'bg-red-100 text-red-800'
-    } as const
-
-    return (
-      <Badge 
-        variant={variants[status as keyof typeof variants] || 'outline'} 
-        className={colors[status as keyof typeof colors]}
-      >
-        {status}
-      </Badge>
-    )
-  }
-
-  const getTypeBadge = (type: string) => {
-    const colors = {
-      supplier: 'bg-blue-100 text-blue-800',
-      contractor: 'bg-purple-100 text-purple-800',
-      consultant: 'bg-green-100 text-green-800',
-      other: 'bg-gray-100 text-gray-800'
-    } as const
-
-    return (
-      <Badge 
-        variant="outline" 
-        className={colors[type as keyof typeof colors]}
-      >
-        {type}
-      </Badge>
-    )
-  }
-
-  const getRatingStars = (rating: number) => {
-    return (
-      <div className="flex items-center space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-3 w-3 ${
-              star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-            }`}
-          />
-        ))}
-        <span className="text-sm ml-1">({rating})</span>
-      </div>
-    )
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -282,10 +223,6 @@ export function VendorsTable({
                       />
                     </TableHead>
                     <TableHead className="min-w-[200px]">Vendor</TableHead>
-                    <TableHead className="min-w-[100px]">Type</TableHead>
-                    <TableHead className="min-w-[150px]">Category</TableHead>
-                    <TableHead className="min-w-[100px]">Status</TableHead>
-                    <TableHead className="min-w-[120px]">Rating</TableHead>
                     <TableHead className="min-w-[150px]">Contact</TableHead>
                     <TableHead className="min-w-[120px]">Performance</TableHead>
                     <TableHead className="min-w-[100px]">Location</TableHead>
@@ -319,18 +256,6 @@ export function VendorsTable({
                               {vendor.contact.contactPerson}
                             </p>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {getTypeBadge(vendor.type)}
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-sm">{vendor.category}</p>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(vendor.status)}
-                        </TableCell>
-                        <TableCell>
-                          {getRatingStars(vendor.rating)}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
@@ -439,7 +364,7 @@ export function VendorsTable({
                       {/* Expanded Row */}
                       {expandedVendor === vendor.id && (
                         <TableRow>
-                          <TableCell colSpan={10} className="p-0">
+                          <TableCell colSpan={6} className="p-0">
                             <div className="p-6 bg-muted/20 border-t">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
