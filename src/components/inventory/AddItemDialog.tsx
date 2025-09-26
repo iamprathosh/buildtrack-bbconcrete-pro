@@ -17,6 +17,7 @@ import { InventoryItem } from './InventoryView'
 import { useUser } from '@clerk/nextjs'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { Plus, Loader2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 const itemSchema = z.object({
   isNewItem: z.boolean().default(true),
@@ -54,7 +55,7 @@ const itemSchema = z.object({
 
 type ItemFormData = z.infer<typeof itemSchema>
 
-interface ProductOption { id: string; name: string; sku: string; category?: string }
+interface ProductOption { id: string; name: string; sku: string; category?: string; image_url?: string }
 
 interface AddItemDialogProps {
   isOpen: boolean
@@ -114,11 +115,12 @@ export function AddItemDialog({ isOpen, onClose, onItemAdded }: AddItemDialogPro
         const productsRes = await fetch('/api/products')
         if (productsRes.ok) {
           const productsBody = await productsRes.json()
-          setProducts((productsBody.products || []).map((p: any) => ({ 
+setProducts((productsBody.products || []).map((p: any) => ({ 
             id: p.id, 
             name: p.name, 
             sku: p.sku, 
-            category: p.category 
+            category: p.category,
+            image_url: p.image_url
           })))
         }
       } catch (e) {
@@ -412,9 +414,28 @@ export function AddItemDialog({ isOpen, onClose, onItemAdded }: AddItemDialogPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {products.map(p => (
+{products.map(p => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.name} • {p.sku}
+                            <div className="flex items-center gap-3 w-full">
+<Avatar className="size-10">
+                                {p.image_url ? (
+                                  <AvatarImage src={p.image_url} alt={p.name} />
+                                ) : (
+                                  <AvatarFallback>{p.name?.[0]?.toUpperCase() || 'P'}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate">{p.name}</span>
+<div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                  </div>
+                                </div>
+                                {p.category && (
+                                  <div className="text-xs text-muted-foreground truncate">{p.category}</div>
+                                )}
+                              </div>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -805,6 +826,6 @@ export function AddItemDialog({ isOpen, onClose, onItemAdded }: AddItemDialogPro
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+</Dialog>
   )
 }

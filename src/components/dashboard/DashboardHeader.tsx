@@ -100,49 +100,7 @@ const loadTransactions = async () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-          {/* Notifications */}
-          <DropdownMenu open={open} onOpenChange={setOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {countToday > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
-                  >
-                    {countToday}
-                  </Badge>
-                )}
-                <span className="sr-only">Notifications</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 p-0">
-              <div className="p-3 border-b font-medium">Today's Transactions</div>
-              <div className="max-h-80 overflow-y-auto">
-                {loading ? (
-                  <div className="p-4 text-sm text-muted-foreground">Loading...</div>
-                ) : todays.length === 0 ? (
-                  <div className="p-4 text-sm text-muted-foreground">No transactions today</div>
-                ) : (
-                  todays.map((t) => (
-                    <div key={t.id} className="px-3 py-2 hover:bg-accent/50 flex items-start gap-2">
-                      {renderIcon(String(t.type))}
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {(t.product || 'Unknown Product')} • {String(t.type)}
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          Qty {t.quantity ?? '-'} {t.unit ?? ''} {t.project ? `• ${t.project}` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0"></div>
       </div>
     </header>
   )

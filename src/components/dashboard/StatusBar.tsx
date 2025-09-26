@@ -59,7 +59,7 @@ export function StatusBar() {
   
   return (
     <footer 
-      className="fixed bottom-0 h-6 bg-background/95 backdrop-blur-sm border-t border-border px-4 flex items-center justify-between text-xs text-muted-foreground z-50 transition-all duration-200"
+      className="hidden lg:flex fixed bottom-0 h-6 bg-background/95 backdrop-blur-sm border-t border-border px-4 items-center justify-between text-xs text-muted-foreground z-50 transition-all duration-200"
       style={{
         left: leftOffset,
         right: 0,

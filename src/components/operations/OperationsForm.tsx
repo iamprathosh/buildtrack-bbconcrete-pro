@@ -27,6 +27,7 @@ import {
   Check
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 const transactionSchema = z.object({
   type: z.enum(['IN', 'OUT', 'RETURN']),
@@ -57,6 +58,7 @@ interface Product {
   unit: string
   minLevel: number
   category: string
+  imageUrl?: string
 }
 
 interface Project {
@@ -107,14 +109,15 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
         const productsResponse = await fetch('/api/products')
         if (productsResponse.ok) {
           const productsData = await productsResponse.json()
-          const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
+const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
             id: p.id,
             name: p.name,
             sku: p.sku,
             currentStock: p.current_stock || 0,
             unit: p.unit_of_measure,
             minLevel: p.min_stock_level || 0,
-            category: p.category || 'Uncategorized'
+            category: p.category || 'Uncategorized',
+            imageUrl: p.image_url || undefined
           }))
           setProducts(mappedProducts)
         }
@@ -143,14 +146,15 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
 
   const handleNewItemAdded = (newItem: InventoryItem) => {
     // Convert InventoryItem to Product format
-    const newProduct: Product = {
+const newProduct: Product = {
       id: newItem.id,
       name: newItem.name,
       sku: newItem.sku,
       currentStock: newItem.currentStock,
       unit: newItem.unit,
       minLevel: newItem.minLevel,
-      category: newItem.category
+      category: newItem.category,
+      imageUrl: newItem.imageUrl
     }
     
     // Add to products list and select it
@@ -242,14 +246,15 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
       const productsResponse = await fetch('/api/products')
       if (productsResponse.ok) {
         const productsData = await productsResponse.json()
-        const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
+const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
           id: p.id,
           name: p.name,
           sku: p.sku,
           currentStock: p.current_stock || 0,
           unit: p.unit_of_measure,
           minLevel: p.min_stock_level || 0,
-          category: p.category || 'Uncategorized'
+          category: p.category || 'Uncategorized',
+          imageUrl: p.image_url || undefined
         }))
         setProducts(mappedProducts)
       }
@@ -367,13 +372,23 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
                               </div>
                             ))
                           ) : (
-                            products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                <div className="flex items-center justify-between w-full">
-                                  <span>{product.name}</span>
-                                  <Badge variant="outline" className="ml-2">
-                                    SKU: {product.sku}
-                                  </Badge>
+products.map((product) => (
+<SelectItem key={product.id} value={product.id}>
+                                <div className="flex items-center gap-3 w-full">
+                                  <Avatar className="size-10">
+                                    {product.imageUrl ? (
+                                      <AvatarImage src={product.imageUrl} alt={product.name} />
+                                    ) : (
+                                      <AvatarFallback>{product.name?.[0]?.toUpperCase() || 'P'}</AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="truncate">{product.name}</span>
+                                      <Badge variant="outline" className="shrink-0">SKU: {product.sku}</Badge>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground truncate">{product.category}</div>
+                                  </div>
                                 </div>
                               </SelectItem>
                             ))
@@ -647,6 +662,12 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
     </div>
     
     {/* Add Item Dialog for Stock In operations */}
+    <AddItemDialog
+      isOpen={showAddItemDialog}
+      onClose={() => setShowAddItemDialog(false)}
+      onItemAdded={handleNewItemAdded}
+    />
+{/* Add Item Dialog for Stock In operations */}
     <AddItemDialog
       isOpen={showAddItemDialog}
       onClose={() => setShowAddItemDialog(false)}
