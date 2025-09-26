@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TrendingUp, TrendingDown, RotateCcw } from 'lucide-react'
-import { OperationsForm } from '@/components/operations/OperationsForm'
+import { OperationsWorkflow } from '@/components/operations/OperationsWorkflow'
 
 export function OperationsCards({ autoOpenType }: { autoOpenType?: 'IN' | 'OUT' | 'RETURN' }) {
   const [open, setOpen] = useState(false)
@@ -80,9 +80,24 @@ export function OperationsCards({ autoOpenType }: { autoOpenType?: 'IN' | 'OUT' 
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {selectedType === 'IN' && <><TrendingUp className="h-5 w-5 text-green-600" />Record Stock In</>}
-              {selectedType === 'OUT' && <><TrendingDown className="h-5 w-5 text-red-600" />Record Stock Out</>}
-              {selectedType === 'RETURN' && <><RotateCcw className="h-5 w-5 text-blue-600" />Record Return</>}
+              {selectedType === 'IN' && (
+                <>
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <span>Stock In</span>
+                </>
+              )}
+              {selectedType === 'OUT' && (
+                <>
+                  <TrendingDown className="h-5 w-5 text-red-600" />
+                  <span>Stock Out</span>
+                </>
+              )}
+              {selectedType === 'RETURN' && (
+                <>
+                  <RotateCcw className="h-5 w-5 text-blue-600" />
+                  <span>Return</span>
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
               {selectedType === 'IN' && 'Add items to your inventory from suppliers or other sources.'}
@@ -90,7 +105,7 @@ export function OperationsCards({ autoOpenType }: { autoOpenType?: 'IN' | 'OUT' 
               {selectedType === 'RETURN' && 'Return items back to inventory from projects or other locations.'}
             </DialogDescription>
           </DialogHeader>
-          <OperationsForm initialType={selectedType} />
+          <OperationsWorkflow initialType={selectedType} onComplete={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>
