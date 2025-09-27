@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UserPlus } from 'lucide-react'
 import type { UserProfile } from '@/types/database'
 
@@ -15,14 +16,22 @@ interface InviteUserDialogProps {
 }
 
 export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDialogProps) {
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [role, setRole] = useState<'super_admin' | 'project_manager' | 'worker'>('worker')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleClose = () => {
     if (isSubmitting) return
+    setFullName('')
     setEmail('')
+    setPassword('')
+    setConfirmPassword('')
     setError(null)
+    setRole('worker')
     onClose()
   }
 
@@ -31,13 +40,19 @@ export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDia
     setIsSubmitting(true)
     setError(null)
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password, role, full_name: fullName || undefined }),
       })
 
       const data = await response.json()
@@ -56,7 +71,7 @@ export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDia
     }
   }
 
-  const isFormValid = email.trim().length > 0
+  const isFormValid = email.trim().length > 0 && password.trim().length >= 8 && confirmPassword.trim().length >= 8
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -64,14 +79,24 @@ export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDia
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <UserPlus className="h-5 w-5" />
-            <span>Invite User</span>
+            <span>Add User</span>
           </DialogTitle>
           <DialogDescription>
-            Enter the email of the person you want to invite. They'll receive access on sign-in, and you can set their role after they join.
+            Create a login for the user by setting their email and password. You can set roles later.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Full Name (optional)</Label>
+            <Input
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Jane Doe"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="email">Email *</Label>
             <Input
@@ -82,6 +107,43 @@ export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDia
               placeholder="name@example.com"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password *</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Role *</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="worker">Worker</SelectItem>
+                <SelectItem value="project_manager">Project Manager</SelectItem>
+                <SelectItem value="super_admin">Super Admin</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {error && (
@@ -103,12 +165,12 @@ export function InviteUserDialog({ isOpen, onClose, onUserAdded }: InviteUserDia
               {isSubmitting ? (
                 <>
                   <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
-                  Sending...
+                  Creating...
                 </>
               ) : (
                 <>
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Send Invite
+                  Create User
                 </>
               )}
             </Button>

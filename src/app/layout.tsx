@@ -18,6 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "BuildTrack - Construction Inventory Management | B&B Concrete",
   description: "Professional construction inventory and project management system for B&B Concrete. Track materials, manage projects, and optimize operations.",
+  icons: {
+    icon: "/bb-logo.svg",
+    shortcut: "/bb-logo.svg",
+    apple: "/bb-logo.jpg",
+  },
 };
 
 export default function RootLayout({

@@ -61,6 +61,11 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Product filters
+  const [productSearch, setProductSearch] = useState('')
+  const [productCategory, setProductCategory] = useState<'all' | string>('all')
+  const [productStatus, setProductStatus] = useState<'all' | 'in-stock' | 'low-stock' | 'out-of-stock'>('all')
+  const [categories, setCategories] = useState<string[]>([])
 
   const [items, setItems] = useState<LineItem[]>([])
   const [showAddItemDialog, setShowAddItemDialog] = useState(false)
@@ -85,15 +90,15 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
 
   // Fetch products/projects
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchProducts = async () => {
       try {
         setLoadingProducts(true)
-        setLoadingProjects(true)
-        const [prodRes, projRes] = await Promise.all([
-          fetch("/api/products"),
-          fetch("/api/projects")
-        ])
-
+        const params = new URLSearchParams()
+        if (productCategory !== 'all') params.set('category', productCategory)
+        if (productStatus !== 'all') params.set('status', productStatus)
+        if (productSearch) params.set('search', productSearch)
+        params.set('limit', '200')
+        const prodRes = await fetch(`/api/products?${params.toString()}`)
         if (prodRes.ok) {
           const pj = await prodRes.json()
           const mapped: Product[] = (pj.products || []).map((p: any) => ({
@@ -107,22 +112,30 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
             imageUrl: p.image_url || undefined
           }))
           setProducts(mapped)
+          if (categories.length === 0) {
+            const uniqueCats = Array.from(new Set(mapped.map(p => p.category).filter(Boolean))) as string[]
+            setCategories(uniqueCats)
+          }
         }
-
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+    const fetchProjects = async () => {
+      try {
+        setLoadingProjects(true)
+        const projRes = await fetch("/api/projects")
         if (projRes.ok) {
           const rj = await projRes.json()
           setProjects(rj.projects || [])
         }
-      } catch (e) {
-        console.error(e)
-        toast({ title: "Error", description: "Failed to load products/projects", variant: "destructive" })
       } finally {
-        setLoadingProducts(false)
         setLoadingProjects(false)
       }
     }
-    fetchAll()
-  }, [])
+    fetchProducts()
+    fetchProjects()
+  }, [productCategory, productStatus, productSearch])
 
   const currentStepList = useMemo(() => {
     // Steps: [Project?] -> Items -> Reason -> Review
@@ -408,6 +421,37 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
               {/* Items step */}
               {currentStepList[step] === (requiresProject ? "Items" : "Items") && (
                 <div className="space-y-4">
+                  {/* Product filters */}
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <Input
+                      placeholder="Search name or SKU"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                    />
+                    <Select value={productCategory} onValueChange={(v) => setProductCategory(v as any)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={productStatus} onValueChange={(v) => setProductStatus(v as any)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="in-stock">In Stock</SelectItem>
+                        <SelectItem value="low-stock">Low Stock</SelectItem>
+                        <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {watchType === 'IN' && (
                     <div className="flex items-center justify-between p-3 rounded-md border bg-muted/40">
                       <div className="text-sm text-muted-foreground">Adding a brand new item?</div>

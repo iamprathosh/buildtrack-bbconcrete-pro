@@ -24,7 +24,7 @@ export default function Home() {
                   Sign in to access your dashboard
                 </p>
                 <SignInButton mode="modal">
-                  <Button className="w-full">Sign In</Button>
+                  <Button className="w-full">Log In</Button>
                 </SignInButton>
               </div>
             </CardContent>

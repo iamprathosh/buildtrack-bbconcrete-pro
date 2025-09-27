@@ -111,55 +111,9 @@ export function UserProfileProvider({ children }: UserProfileProviderProps) {
         return existingProfile
       }
 
-      // Create new profile
-      console.log('➕ [UserProfileProvider] Creating new profile...')
-      
-      // Check for pending role from registration
-      const pendingRole = localStorage.getItem('pendingUserRole') as UserRole || 'worker'
-      console.log('📝 [UserProfileProvider] Using role:', pendingRole)
-      
-      const profileData = {
-        id: clerkUser.id,
-        email: clerkUser.emailAddresses[0]?.emailAddress || '',
-        full_name: clerkUser.fullName || clerkUser.firstName || 'User',
-        role: pendingRole,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      const { data: newProfile, error: insertError } = await supabase
-        .from('user_profiles')
-        .insert(profileData)
-        .select()
-        .single()
-
-      if (insertError) {
-        console.error('❌ [UserProfileProvider] Error creating profile:', insertError)
-        // Handle duplicate key error - profile might have been created by another instance
-        if (insertError.code === '23505') {
-          console.log('🔄 [UserProfileProvider] Profile already exists, refetching...')
-          const { data: existingProfile } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', clerkUser.id)
-            .single()
-          
-          if (existingProfile) {
-            return existingProfile
-          }
-        }
-        throw new Error(`Failed to create profile: ${insertError.message}`)
-      }
-
-      // Clear pending role
-      localStorage.removeItem('pendingUserRole')
-      
-      console.log('✅ [UserProfileProvider] Profile created successfully')
-      
-      // Cache the profile
-      profileCache.set(clerkUser.id, { profile: newProfile!, timestamp: Date.now() })
-      return newProfile!
+      // Do NOT auto-create profiles. Only admin-provisioned users may access.
+      console.warn('⛔ [UserProfileProvider] No user profile found for this account. Access is restricted until an admin adds the user.')
+      throw new Error('No user profile found. Please contact your administrator to be granted access.')
       
     } catch (err) {
       console.error('💥 [UserProfileProvider] Error syncing profile:', err)

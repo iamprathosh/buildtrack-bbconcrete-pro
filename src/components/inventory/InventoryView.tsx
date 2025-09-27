@@ -347,7 +347,7 @@ export function InventoryView() {
                   <span className="ml-2">Loading products...</span>
                 </div>
               ) : (
-                <InventoryTable 
+<InventoryTable 
                   inventory={filteredInventory}
                   selectedItems={selectedItems}
                   onSelectedItemsChange={setSelectedItems}
@@ -372,6 +372,18 @@ export function InventoryView() {
                       toast.error('Failed to update product')
                     }
                   }}
+                  onItemDelete={async (id) => {
+                    const confirmed = window.confirm('Are you sure you want to delete this item?')
+                    if (!confirmed) return
+                    const success = await deleteProduct(id)
+                    if (success) {
+                      toast.success('Item deleted successfully')
+                      await refresh()
+                    } else {
+                      toast.error('Failed to delete item')
+                    }
+                  }}
+                  onBulkDelete={() => handleBulkAction('delete')}
                 />
               )}
             </TabsContent>

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useDatabase } from '@/lib/database'
 import { format } from 'date-fns'
 import { UserProfile } from '@/types/database'
-import { Plus, Shield } from 'lucide-react'
+import { Plus, Shield, Trash2 } from 'lucide-react'
 import { InviteUserDialog } from './InviteUserDialog'
 
 export function UsersView() {
@@ -78,13 +78,31 @@ export function UsersView() {
     )
   }
 
+  const handleDelete = async (id: string) => {
+    const confirmed = window.confirm('Are you sure you want to delete this user?')
+    if (!confirmed) return
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err?.error || 'Failed to delete user')
+        return
+      }
+      // The API deactivates the user. Remove from list or mark inactive.
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: false } : u))
+    } catch (e) {
+      console.error(e)
+      alert('Failed to delete user')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Users</h1>
         <Button onClick={() => setInviteOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Invite User
+          Add User
         </Button>
       </div>
 
@@ -105,6 +123,9 @@ export function UsersView() {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead className="w-[100px]">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -128,12 +149,23 @@ export function UsersView() {
                     <TableCell>
                       {format(new Date(user.created_at), 'MMM dd, yyyy')}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(user.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
 
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No users found
                     </TableCell>
                   </TableRow>

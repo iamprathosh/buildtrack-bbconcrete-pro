@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { createServerClient } from '@/lib/database'
+import { supabaseServer } from '@/lib/database-server'
 import { z } from 'zod'
 
 // Validation schemas aligned to user_profiles
@@ -41,7 +41,7 @@ export async function GET(
 
     const { userId } = params
 
-    const db = createServerClient()
+    const db = supabaseServer
 
     const { data: user, error } = await db
       .from('user_profiles')
@@ -86,7 +86,7 @@ export async function PUT(
 
     const validatedData = userUpdateSchema.parse(body)
 
-    const db = createServerClient()
+    const db = supabaseServer
 
     // Check if user exists
     const { data: existingUser, error: fetchError } = await db
@@ -246,7 +246,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
-    const db = createServerClient()
+    const db = supabaseServer
 
     const { data: updatedUser, error } = await db
       .from('user_profiles')

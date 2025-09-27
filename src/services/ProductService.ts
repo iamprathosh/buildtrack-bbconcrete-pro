@@ -185,9 +185,23 @@ export class ProductService extends BaseService {
     })
   }
 
-  // Delete product
+  // Delete product and any dependent transactions to satisfy FK constraints
   async deleteProduct(id: string): Promise<DatabaseResult<null>> {
-    return this.delete('products', id)
+    return this.safeQuery<null>(async (client) => {
+      // Best-effort delete of dependent rows. Ignore errors for tables that may not exist.
+      try {
+        await (client as any).from('simple_inventory_transactions').delete().eq('product_id', id)
+      } catch {}
+      try {
+        await (client as any).from('inventory_transactions').delete().eq('product_id', id)
+      } catch {}
+      try {
+        await (client as any).from('stock_transactions').delete().eq('product_id', id)
+      } catch {}
+
+      // Now delete the product
+      return (client as any).from('products').delete().eq('id', id)
+    })
   }
 
   // Get inventory statistics

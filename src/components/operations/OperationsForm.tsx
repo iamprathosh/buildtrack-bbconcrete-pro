@@ -59,6 +59,7 @@ interface Product {
   minLevel: number
   category: string
   imageUrl?: string
+  stockStatus?: 'in-stock' | 'low-stock' | 'out-of-stock'
 }
 
 interface Project {
@@ -78,6 +79,11 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [showAddItemDialog, setShowAddItemDialog] = useState(false)
+  // Product filters
+  const [productSearch, setProductSearch] = useState('')
+  const [productCategory, setProductCategory] = useState<'all' | string>('all')
+  const [productStatus, setProductStatus] = useState<'all' | 'in-stock' | 'low-stock' | 'out-of-stock'>('all')
+  const [categories, setCategories] = useState<string[]>([])
 
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
@@ -101,15 +107,18 @@ export function OperationsForm({ initialType = 'OUT' }: { initialType?: 'IN' | '
 
   // Fetch products and projects from API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProducts = async () => {
       try {
-        setLoadingProjects(true)
         setLoadingProducts(true)
-        // Fetch products
-        const productsResponse = await fetch('/api/products')
+        const params = new URLSearchParams()
+        if (productCategory !== 'all') params.set('category', productCategory)
+        if (productStatus !== 'all') params.set('status', productStatus)
+        if (productSearch) params.set('search', productSearch)
+        params.set('limit', '200')
+        const productsResponse = await fetch(`/api/products?${params.toString()}`)
         if (productsResponse.ok) {
           const productsData = await productsResponse.json()
-const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
+          const mappedProducts: Product[] = (productsData.products || []).map((p: any) => ({
             id: p.id,
             name: p.name,
             sku: p.sku,
@@ -117,32 +126,37 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
             unit: p.unit_of_measure,
             minLevel: p.min_stock_level || 0,
             category: p.category || 'Uncategorized',
-            imageUrl: p.image_url || undefined
+            imageUrl: p.image_url || undefined,
+            stockStatus: p.stock_status as 'in-stock' | 'low-stock' | 'out-of-stock' | undefined
           }))
           setProducts(mappedProducts)
+          // Derive categories from current result if none cached yet
+          if (categories.length === 0) {
+            const uniqueCats = Array.from(new Set(mappedProducts.map(p => p.category).filter(Boolean))) as string[]
+            setCategories(uniqueCats)
+          }
         }
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
 
-        // Fetch projects  
+    const fetchProjects = async () => {
+      try {
+        setLoadingProjects(true)
         const projectsResponse = await fetch('/api/projects')
         if (projectsResponse.ok) {
           const projectsData = await projectsResponse.json()
           setProjects(projectsData.projects || [])
         }
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load products and projects.',
-          variant: 'destructive'
-        })
       } finally {
         setLoadingProjects(false)
-        setLoadingProducts(false)
       }
     }
 
-    fetchData()
-  }, [])
+    fetchProducts()
+    fetchProjects()
+  }, [productCategory, productStatus, productSearch])
 
   const handleNewItemAdded = (newItem: InventoryItem) => {
     // Convert InventoryItem to Product format
@@ -344,6 +358,37 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                   )}
                 </div>
 
+                {/* Filters for product selection */}
+                <div className="grid gap-2 md:grid-cols-3">
+                  <Input
+                    placeholder="Search name or SKU"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                  />
+                  <Select value={productCategory} onValueChange={(v) => setProductCategory(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={productStatus} onValueChange={(v) => setProductStatus(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="in-stock">In Stock</SelectItem>
+                      <SelectItem value="low-stock">Low Stock</SelectItem>
+                      <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <FormField
                   control={form.control}
                   name="productId"
@@ -372,8 +417,8 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                               </div>
                             ))
                           ) : (
-products.map((product) => (
-<SelectItem key={product.id} value={product.id}>
+                            products.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
                                 <div className="flex items-center gap-3 w-full">
                                   <Avatar className="size-10">
                                     {product.imageUrl ? (

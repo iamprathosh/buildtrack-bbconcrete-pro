@@ -33,6 +33,8 @@ interface InventoryTableProps {
   onSelectedItemsChange: (selectedItems: string[]) => void
   onItemUpdate: (itemId: string, updates: Partial<InventoryItem>) => void
   onRowClick?: (productId: string) => void
+  onItemDelete?: (itemId: string) => Promise<void> | void
+  onBulkDelete?: () => void
 }
 
 type SortField = keyof InventoryItem
@@ -43,7 +45,9 @@ export function InventoryTable({
   selectedItems,
   onSelectedItemsChange,
   onItemUpdate,
-  onRowClick
+  onRowClick,
+  onItemDelete,
+  onBulkDelete
 }: InventoryTableProps) {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -269,7 +273,7 @@ export function InventoryTable({
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+<DropdownMenuItem onClick={() => onRowClick?.(item.id)}>
                             <Edit3 className="mr-2 h-4 w-4" />
                             Edit Item
                           </DropdownMenuItem>
@@ -279,7 +283,7 @@ export function InventoryTable({
                             View in Operations
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
+<DropdownMenuItem className="text-destructive" onClick={() => onItemDelete?.(item.id)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete Item
                           </DropdownMenuItem>
@@ -301,13 +305,10 @@ export function InventoryTable({
               {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
             </p>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
+<Button variant="outline" size="sm">
                 Export Selected
               </Button>
-              <Button variant="outline" size="sm">
-                Bulk Edit
-              </Button>
-              <Button variant="destructive" size="sm">
+              <Button variant="destructive" size="sm" onClick={() => onBulkDelete?.()}>
                 Delete Selected
               </Button>
             </div>
