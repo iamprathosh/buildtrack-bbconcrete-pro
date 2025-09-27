@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { productService, ProductWithDetails } from '@/services/ProductService'
+import { supabase } from '@/lib/database'
 import { StockTransaction } from '@/types/database'
 import { toast } from 'sonner'
 import { useUser } from '@clerk/nextjs'
@@ -48,6 +49,42 @@ export function ProductDetailsModal({
   onClose, 
   onProductUpdate 
 }: ProductDetailsModalProps) {
+  const [uploading, setUploading] = useState(false)
+
+  const ReplaceImageButton = ({ onUploaded, productId }: { onUploaded: (url: string) => void; productId: string }) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      setUploading(true)
+      try {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `product-images/${productId}-${Date.now()}.${ext}`
+        const { data, error } = await (supabase as any).storage.from('public').upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+        if (error) throw error
+        const { data: pub } = await (supabase as any).storage.from('public').getPublicUrl(path)
+        const url = pub?.publicUrl
+        if (url) onUploaded(url)
+      } catch (err) {
+        toast.error('Failed to upload image. Please try again or use a direct URL.')
+      } finally {
+        setUploading(false)
+      }
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <input id="file" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+        <Label htmlFor="file" className="cursor-pointer">
+          <Button type="button" variant="outline" disabled={uploading}>
+            {uploading ? 'Uploading...' : 'Replace Image'}
+          </Button>
+        </Label>
+      </div>
+    )
+  }
   const { user } = useUser()
   const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [stockTransactions, setStockTransactions] = useState<any[]>([])
@@ -102,7 +139,8 @@ export function ProductDetailsModal({
         current_stock: editedProduct.current_stock,
         min_stock_level: editedProduct.min_stock_level,
         max_stock_level: editedProduct.max_stock_level,
-        supplier: editedProduct.supplier
+        supplier: editedProduct.supplier,
+        image_url: editedProduct.image_url,
       }
 
       const userInfo = user ? {
@@ -400,6 +438,29 @@ export function ProductDetailsModal({
                       )}
                     </div>
 
+                    {/* Image URL / Replace Image */}
+                    <div className="space-y-2">
+                      <Label htmlFor="image_url">Product Image</Label>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Input
+                            id="image_url"
+                            placeholder="https://..."
+                            value={editedProduct.image_url || ''}
+                            onChange={(e) => setEditedProduct(prev => ({ ...prev, image_url: e.target.value }))}
+                          />
+                          <ReplaceImageButton onUploaded={(url) => setEditedProduct(prev => ({ ...prev, image_url: url }))} productId={product.id} />
+                        </div>
+                      ) : (
+                        <div className="text-sm border rounded-md px-3 py-2 bg-muted flex items-center gap-3">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="h-10 w-10 object-cover rounded" />
+                          ) : null}
+                          <span className="truncate">{product.image_url || 'No image set'}</span>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="current_stock">Current Stock</Label>
@@ -613,11 +674,11 @@ export function ProductDetailsModal({
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {product.image_url ? (
-                      <div className="space-y-4">
-                        <div className="border rounded-lg overflow-hidden">
+                    <div className="space-y-4">
+                      <div className="border rounded-lg overflow-hidden">
+                        {product.image_url ? (
                           <img
-                            src={product.image_url}
+                            src={editedProduct.image_url || product.image_url}
                             alt={product.name}
                             className="w-full h-64 object-cover"
                             onError={(e) => {
@@ -626,21 +687,36 @@ export function ProductDetailsModal({
                               target.nextElementSibling?.classList.remove('hidden');
                             }}
                           />
-                          <div className="hidden flex items-center justify-center h-64 bg-muted">
-                            <div className="text-center text-muted-foreground">
-                              <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                              <p>Image failed to load</p>
-                            </div>
+                        ) : null}
+                        <div className="hidden flex items-center justify-center h-64 bg-muted">
+                          <div className="text-center text-muted-foreground">
+                            <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>Image failed to load</p>
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <ImageIcon className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg">No images available</p>
-                        <p className="text-sm">Add product images to enhance inventory management</p>
-                      </div>
-                    )}
+                      {isEditing && (
+                        <div className="space-y-3">
+                          <ReplaceImageButton onUploaded={(url) => setEditedProduct(prev => ({ ...prev, image_url: url }))} productId={product.id} />
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="image_url_inline">or set URL</Label>
+                            <Input
+                              id="image_url_inline"
+                              placeholder="https://..."
+                              value={editedProduct.image_url || ''}
+                              onChange={(e) => setEditedProduct(prev => ({ ...prev, image_url: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {!isEditing && !product.image_url && (
+                        <div className="text-center py-12 text-muted-foreground">
+                          <ImageIcon className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                          <p className="text-lg">No images available</p>
+                          <p className="text-sm">Edit and upload an image to enhance inventory management</p>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
