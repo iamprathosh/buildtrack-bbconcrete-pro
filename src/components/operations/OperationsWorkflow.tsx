@@ -116,8 +116,6 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
             unitPrice: p.mauc || 0,
             totalValue: p.total_value || ((p.current_stock || 0) * (p.mauc || 0))
           }))
-            totalValue: p.total_value || ((p.current_stock || 0) * (p.mauc || 0))
-          }))
           setProducts(mapped)
           if (categories.length === 0) {
             const uniqueCats = Array.from(new Set(mapped.map(p => p.category).filter(Boolean))) as string[]
