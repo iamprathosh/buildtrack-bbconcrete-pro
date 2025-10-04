@@ -361,7 +361,7 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                 {/* Filters for product selection */}
                 <div className="grid gap-2 md:grid-cols-3">
                   <Input
-                    placeholder="Search name or SKU"
+                    placeholder="Search by name"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
                   />
@@ -430,7 +430,6 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
                                       <span className="truncate">{product.name}</span>
-                                      <Badge variant="outline" className="shrink-0">SKU: {product.sku}</Badge>
                                     </div>
                                     <div className="text-xs text-muted-foreground truncate">{product.category}</div>
                                   </div>
@@ -455,44 +454,40 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                 )}
               </div>
 
-              {/* Quantity & Unit Cost (for IN) */}
+              {/* Quantity Input */}
               <FormField
                 control={form.control}
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleQuantityChange(-1)}
-                        disabled={field.value <= 1}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <FormControl>
+                    <FormLabel className="text-base font-semibold">Quantity *</FormLabel>
+                    <FormControl>
+                      <div className="space-y-2">
                         <Input
                           type="number"
                           min="1"
+                          step="1"
+                          placeholder="Type quantity here (e.g., 50, 100, 250)"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                          className="text-center"
+                          onChange={(e) => {
+                            const value = e.target.value
+                            if (value === '') {
+                              field.onChange('')
+                            } else {
+                              const numValue = Number(value)
+                              if (numValue > 0) {
+                                field.onChange(numValue)
+                              }
+                            }
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          className="text-lg font-bold text-center h-14 text-primary border-2 border-primary/20 focus:border-primary"
                         />
-                      </FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleQuantityChange(1)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
+                      </div>
+                    </FormControl>
                     {selectedProduct && (
-                      <p className="text-sm text-muted-foreground">
-                        Unit: {selectedProduct.unit}
+                      <p className="text-sm text-muted-foreground text-center mt-2">
+                        Unit: {selectedProduct.unit} • Current Stock: {selectedProduct.currentStock}
                       </p>
                     )}
                     <FormMessage />
@@ -646,7 +641,7 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
                 <div>
                   <h3 className="font-medium">{selectedProduct.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    SKU: {selectedProduct.sku}
+                    {selectedProduct.category}
                   </p>
                 </div>
               </div>
@@ -707,12 +702,6 @@ const mappedProducts: Product[] = (productsData.products || []).map((p: any) => 
     </div>
     
     {/* Add Item Dialog for Stock In operations */}
-    <AddItemDialog
-      isOpen={showAddItemDialog}
-      onClose={() => setShowAddItemDialog(false)}
-      onItemAdded={handleNewItemAdded}
-    />
-{/* Add Item Dialog for Stock In operations */}
     <AddItemDialog
       isOpen={showAddItemDialog}
       onClose={() => setShowAddItemDialog(false)}

@@ -315,6 +315,7 @@ export type Database = {
           name: string
           description: string | null
           category: string | null
+          field_manager: string | null
           unit_of_measure: string
           current_stock: number | null
           min_stock_level: number | null
@@ -340,6 +341,7 @@ export type Database = {
           name: string
           description?: string | null
           category?: string | null
+          field_manager?: string | null
           unit_of_measure: string
           current_stock?: number | null
           min_stock_level?: number | null
@@ -365,6 +367,7 @@ export type Database = {
           name?: string
           description?: string | null
           category?: string | null
+          field_manager?: string | null
           unit_of_measure?: string
           current_stock?: number | null
           min_stock_level?: number | null

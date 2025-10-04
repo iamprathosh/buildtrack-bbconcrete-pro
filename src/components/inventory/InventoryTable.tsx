@@ -159,7 +159,7 @@ export function InventoryTable({
                 <TableHead className="w-[300px] pr-1">
                   <SortableHeader field="name">Product</SortableHeader>
                 </TableHead>
-                <TableHead className="w-[120px] px-1">
+                <TableHead className="w-[140px] px-1">
                   <SortableHeader field="category">Category</SortableHeader>
                 </TableHead>
                 <TableHead className="w-[120px] px-2">
@@ -213,17 +213,16 @@ export function InventoryTable({
                     <TableCell className="font-medium overflow-hidden pr-1">
                       <div className="space-y-1 min-w-0">
                         <p className="font-semibold truncate" title={item.name}>{item.name}</p>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                          <code className="px-1 bg-muted rounded text-[10px] shrink-0">{item.sku}</code>
-                          {item.supplier && (
-                            <span className="truncate" title={item.supplier}>• {item.supplier}</span>
-                          )}
-                        </div>
+                        {item.supplier && (
+                          <div className="text-xs text-muted-foreground truncate" title={item.supplier}>
+                            {item.supplier}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm overflow-hidden px-1">
-                      <span className="px-1 py-1 bg-muted/50 rounded text-xs truncate block" title={item.category}>
-                        {item.category.length > 7 ? item.category.substring(0, 7) + '...' : item.category}
+                      <span className="px-1 py-1 bg-muted/50 rounded text-xs block" title={item.category}>
+                        {item.category}
                       </span>
                     </TableCell>
                     <TableCell className="overflow-hidden">

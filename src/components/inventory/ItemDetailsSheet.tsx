@@ -79,7 +79,7 @@ export function ItemDetailsSheet({ item, isOpen, onClose, onItemUpdate }: ItemDe
             <div className="space-y-2">
               <SheetTitle className="text-xl">{item.name}</SheetTitle>
               <SheetDescription>
-                <code className="text-sm">{item.sku}</code> • {item.category}
+                {item.category}
               </SheetDescription>
             </div>
             <div className="flex items-center space-x-2">
