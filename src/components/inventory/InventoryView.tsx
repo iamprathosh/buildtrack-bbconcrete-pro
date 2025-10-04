@@ -35,6 +35,7 @@ function productToInventoryItem(product: ProductWithDetails): InventoryItem {
     name: product.name,
     sku: product.sku,
     category: product.category || 'Uncategorized',
+    fieldManager: product.field_manager || undefined,
     currentStock: product.current_stock || 0,
     minLevel: product.min_stock_level || 0,
     maxLevel: product.max_stock_level || 0,
@@ -59,6 +60,7 @@ export interface InventoryItem {
   name: string
   sku: string
   category: string
+  fieldManager?: string
   currentStock: number
   minLevel: number
   maxLevel: number
@@ -129,7 +131,6 @@ export function InventoryView() {
     const filtered = inventoryItems.filter(item => {
       const matchesSearch = 
         item.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        item.sku.toLowerCase().includes(filters.search.toLowerCase()) ||
         item.description?.toLowerCase().includes(filters.search.toLowerCase())
 
       const matchesCategory = filters.category === 'all' || item.category === filters.category
@@ -172,7 +173,6 @@ export function InventoryView() {
   const handleExportInventory = () => {
     // Implement export functionality
     const csvData = filteredInventory.map(item => ({
-      sku: item.sku,
       name: item.name,
       category: item.category,
       currentStock: item.currentStock,
@@ -356,7 +356,6 @@ export function InventoryView() {
                     // Convert InventoryItem updates back to ProductUpdate
                     const productUpdates = {
                       name: updates.name,
-                      sku: updates.sku,
                       description: updates.description,
                       current_stock: updates.currentStock,
                       min_stock_level: updates.minLevel,
@@ -433,7 +432,7 @@ export function InventoryView() {
                         <div className="space-y-1 min-w-0 flex-1">
                           <CardTitle className="text-lg truncate">{item.name}</CardTitle>
                           <CardDescription className="truncate">
-                            {item.sku} • {item.category}
+                            {item.category}
                           </CardDescription>
                         </div>
                         <Badge variant={

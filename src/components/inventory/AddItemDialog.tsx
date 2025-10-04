@@ -25,14 +25,14 @@ const itemSchema = z.object({
 
   // Fields for brand new item creation (matching products table schema)
   name: z.string().min(1, 'Product name is required').optional(),
-  sku: z.string().min(1, 'SKU is required').optional(),
+  description: z.string().min(1, 'Description is required').optional(),
   category: z.string().optional(), // Optional - simple text category or preset
   custom_category: z.string().optional(), // Used when "Other" is selected
+  field_manager: z.string().optional(), // Field manager name
   unit_of_measure: z.string().min(1, 'Unit of measure is required').optional(),
   mauc: z.number().min(0, 'Unit cost must be 0 or greater').optional(),
   min_stock_level: z.number().min(0, 'Minimum stock level must be 0 or greater').optional(),
   max_stock_level: z.number().min(1, 'Maximum stock level must be greater than 0').optional(),
-  description: z.string().optional(),
   supplier: z.string().optional(),
   image_file: z.any().optional(), // File object for new images
   image_url: z.string().optional(), // URL for existing images
@@ -47,7 +47,7 @@ const itemSchema = z.object({
   // If not new item, we must have existingProductId
   if (!data.isNewItem) return !!data.existingProductId
   // If new item, required creation fields must be present
-  return !!(data.name && data.sku && data.unit_of_measure)
+  return !!(data.name && data.description && data.unit_of_measure)
 }, {
   message: 'Please fill in required fields based on your selection',
   path: ['isNewItem']
@@ -78,14 +78,14 @@ export function AddItemDialog({ isOpen, onClose, onItemAdded }: AddItemDialogPro
       existingProductId: undefined,
       // new item defaults (matching products table schema)
       name: '',
-      sku: '',
+      description: '',
       category: '',
       custom_category: '',
+      field_manager: '',
       unit_of_measure: '',
       mauc: 0,
       min_stock_level: 0,
       max_stock_level: 100,
-      description: '',
       supplier: '',
       image_file: null,
       image_url: '',
@@ -170,16 +170,20 @@ setProducts((productsBody.products || []).map((p: any) => ({
 
         // Create the product
         const categoryValue = (data.category === 'Other' ? data.custom_category : data.category) || null
+        
+        // Auto-generate SKU based on name and timestamp
+        const autoSku = `${(data.name || '').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
         const productData = {
           name: data.name,
-          sku: data.sku,
+          sku: autoSku,
+          description: data.description || null,
           category: categoryValue,
+          field_manager: data.field_manager || null,
           unit_of_measure: data.unit_of_measure,
           min_stock_level: data.min_stock_level,
           max_stock_level: data.max_stock_level,
           mauc: data.mauc,
-          description: data.description || null,
           supplier: data.supplier || null,
           image_url: imageUrl,
           location: data.location || null,
@@ -427,9 +431,6 @@ setProducts((productsBody.products || []).map((p: any) => ({
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="truncate">{p.name}</span>
-<div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-xs text-muted-foreground">{p.sku}</span>
-                                  </div>
                                 </div>
                                 {p.category && (
                                   <div className="text-xs text-muted-foreground truncate">{p.category}</div>
@@ -449,35 +450,37 @@ setProducts((productsBody.products || []).map((p: any) => ({
             {/* Basic Information */}
             {watchIsNew && (
               <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Portland Cement" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Portland Cement" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., CEM-001" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Detailed description of the product..."
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
@@ -485,7 +488,7 @@ setProducts((productsBody.products || []).map((p: any) => ({
                     name="category"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Category (Optional)</FormLabel>
+                        <FormLabel>Category</FormLabel>
                         <Select onValueChange={(val) => {
                           field.onChange(val)
                           if (val !== 'Other') {
@@ -542,29 +545,43 @@ setProducts((productsBody.products || []).map((p: any) => ({
 
                   <FormField
                     control={form.control}
-                    name="unit_of_measure"
+                    name="field_manager"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Unit of Measure *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {units.map(unit => (
-                              <SelectItem key={unit} value={unit}>
-                                {unit}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Field Manager</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., John Smith" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="unit_of_measure"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity Type *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select quantity type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {units.map(unit => (
+                            <SelectItem key={unit} value={unit}>
+                              {unit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
@@ -647,32 +664,41 @@ setProducts((productsBody.products || []).map((p: any) => ({
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold">Financial Information</h3>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="mauc"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Moving Average Unit Cost ($)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name="mauc"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Price per Unit ($)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <div className="space-y-2">
-                    <Label>Total Value</Label>
-                    <div className="flex items-center h-10 px-3 py-2 text-sm bg-muted rounded-md">
-                      ${totalValue.toFixed(2)}
+                    <div className="space-y-2">
+                      <Label>Quantity</Label>
+                      <div className="flex items-center h-10 px-3 py-2 text-sm bg-muted rounded-md font-medium">
+                        {watchCurrentStock} {form.watch('unit_of_measure') || 'units'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Total Value</Label>
+                      <div className="flex items-center h-10 px-3 py-2 text-sm bg-primary/10 rounded-md font-bold text-primary">
+                        ${totalValue.toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -757,26 +783,6 @@ setProducts((productsBody.products || []).map((p: any) => ({
               </div>
             )}
 
-            {/* Additional Information (only for brand new item) */}
-            {watchIsNew && (
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Optional description of the product..."
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             {/* Notes (applies to transaction) */}
             <FormField

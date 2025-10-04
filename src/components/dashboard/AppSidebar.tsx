@@ -102,11 +102,13 @@ export function AppSidebar() {
   const navigation = useMemo(() => {
     const items = [...navigationItems.base]
     
-    if (isLoaded && user && profile && !profileLoading) {
-      // Add role-specific navigation based on Supabase profile
-      const roleItems = navigationItems[userRole as keyof typeof navigationItems] || navigationItems.worker
-      items.push(...roleItems)
-    }
+    // Always show at least worker navigation to prevent hydration mismatch
+    // The actual role-based navigation will update on client side
+    const roleItems = isLoaded && user && profile && !profileLoading 
+      ? navigationItems[userRole as keyof typeof navigationItems] || navigationItems.worker
+      : navigationItems.worker
+    
+    items.push(...roleItems)
     
     return items
   }, [isLoaded, user, profile, profileLoading, userRole])
@@ -177,23 +179,21 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" asChild>
-                  <button className="flex items-center w-full text-left">
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user?.imageUrl} alt={user?.firstName || 'User'} />
-                      <AvatarFallback className="rounded-lg">
-                        <Shield className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
-                        {user?.firstName || user?.emailAddresses[0]?.emailAddress}
-                      </span>
-                      <span className="truncate text-xs capitalize">
-                        {userRole}
-                      </span>
-                    </div>
-                  </button>
+                <SidebarMenuButton size="lg" className="flex items-center w-full text-left">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user?.imageUrl} alt={user?.firstName || 'User'} />
+                    <AvatarFallback className="rounded-lg">
+                      <Shield className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {user?.firstName || user?.emailAddresses[0]?.emailAddress}
+                    </span>
+                    <span className="truncate text-xs capitalize">
+                      {userRole}
+                    </span>
+                  </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

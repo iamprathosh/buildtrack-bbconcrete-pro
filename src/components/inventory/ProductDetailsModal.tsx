@@ -136,6 +136,7 @@ export function ProductDetailsModal({
       const updates = {
         name: editedProduct.name,
         description: editedProduct.description,
+        field_manager: editedProduct.field_manager,
         current_stock: editedProduct.current_stock,
         min_stock_level: editedProduct.min_stock_level,
         max_stock_level: editedProduct.max_stock_level,
@@ -360,12 +361,12 @@ export function ProductDetailsModal({
                 {/* Quick Info */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">SKU:</span>
-                    <p className="font-medium">{product.sku}</p>
-                  </div>
-                  <div>
 <span className="text-muted-foreground">Category:</span>
                     <p className="font-medium">{product.category || 'Uncategorized'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Field Manager:</span>
+                    <p className="font-medium">{product.field_manager || 'Not assigned'}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Supplier:</span>
@@ -403,23 +404,17 @@ export function ProductDetailsModal({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Product Name</Label>
-                        {isEditing ? (
-                          <Input
-                            id="name"
-                            value={editedProduct.name || ''}
-                            onChange={(e) => setEditedProduct(prev => ({ ...prev, name: e.target.value }))}
-                          />
-                        ) : (
-                          <p className="text-sm border rounded-md px-3 py-2 bg-muted">{product.name}</p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="sku">SKU</Label>
-                        <p className="text-sm border rounded-md px-3 py-2 bg-muted">{product.sku}</p>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Product Name</Label>
+                      {isEditing ? (
+                        <Input
+                          id="name"
+                          value={editedProduct.name || ''}
+                          onChange={(e) => setEditedProduct(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="text-sm border rounded-md px-3 py-2 bg-muted">{product.name}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -514,7 +509,21 @@ export function ProductDetailsModal({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="field_manager">Field Manager</Label>
+                        {isEditing ? (
+                          <Input
+                            id="field_manager"
+                            value={editedProduct.field_manager || ''}
+                            onChange={(e) => setEditedProduct(prev => ({ ...prev, field_manager: e.target.value }))}
+                          />
+                        ) : (
+                          <p className="text-sm border rounded-md px-3 py-2 bg-muted">
+                            {product.field_manager || 'Not assigned'}
+                          </p>
+                        )}
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="supplier">Supplier</Label>
                         {isEditing ? (
@@ -530,7 +539,7 @@ export function ProductDetailsModal({
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="unit">Unit of Measure</Label>
+                        <Label htmlFor="unit">Quantity Type</Label>
                         <p className="text-sm border rounded-md px-3 py-2 bg-muted">{product.unit_of_measure}</p>
                       </div>
                     </div>

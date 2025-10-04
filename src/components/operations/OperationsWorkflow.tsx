@@ -28,6 +28,8 @@ interface Product {
   minLevel: number
   category: string
   imageUrl?: string
+  unitPrice?: number
+  totalValue?: number
 }
 
 interface Project {
@@ -45,6 +47,7 @@ interface LineItem {
   currentStock: number
   quantity: number
   unitCost?: number | null
+  productUnitPrice?: number // For stock out/return operations
 }
 
 const stepSchema = z.object({
@@ -109,7 +112,11 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
             unit: p.unit_of_measure,
             minLevel: p.min_stock_level || 0,
             category: p.category || "Uncategorized",
-            imageUrl: p.image_url || undefined
+            imageUrl: p.image_url || undefined,
+            unitPrice: p.mauc || 0,
+            totalValue: p.total_value || ((p.current_stock || 0) * (p.mauc || 0))
+          }))
+            totalValue: p.total_value || ((p.current_stock || 0) * (p.mauc || 0))
           }))
           setProducts(mapped)
           if (categories.length === 0) {
@@ -215,7 +222,8 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
           unit: p.unit,
           currentStock: p.currentStock,
           quantity: 1,
-          unitCost: watchType === "IN" ? null : undefined
+          unitCost: watchType === "IN" ? null : undefined,
+          productUnitPrice: p.unitPrice || 0
         }
       ]
     })
@@ -234,7 +242,9 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
       unit: newItem.unit,
       minLevel: newItem.minLevel,
       category: newItem.category,
-      imageUrl: newItem.imageUrl
+      imageUrl: newItem.imageUrl,
+      unitPrice: newItem.unitPrice || 0,
+      totalValue: newItem.totalValue || 0
     }
     setProducts(prev => [newProduct, ...prev])
     // Auto-select the newly created product
@@ -424,7 +434,7 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
                   {/* Product filters */}
                   <div className="grid gap-2 md:grid-cols-3">
                     <Input
-                      placeholder="Search name or SKU"
+                      placeholder="Search by name"
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
                     />
@@ -486,7 +496,7 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
                             <CardContent className="p-3 space-y-2">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="font-medium truncate" title={p.name}>{p.name}</div>
-                                <Badge variant="outline">SKU: {p.sku}</Badge>
+                                <Badge variant="outline">{p.category}</Badge>
                               </div>
                               <div className="text-xs text-muted-foreground">Stock: {p.currentStock} {p.unit}</div>
 
@@ -496,30 +506,26 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
                                 </Button>
                               ) : (
                                 <div className="space-y-2">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() => adjustQuantity(p.id, -1)}
-                                        aria-label={`Decrease quantity of ${p.name}`}
-                                      >
-                                        <Minus className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="outline"
-                                        onClick={() => adjustQuantity(p.id, +1)}
-                                        aria-label={`Increase quantity of ${p.name}`}
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                      </Button>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <Label className="text-xs font-semibold">Quantity</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          max={watchType === 'OUT' ? p.currentStock : undefined}
+                                          step="1"
+                                          value={it!.quantity}
+                                          onChange={(e) => setQuantityFromInput(p.id, e.target.value)}
+                                          onFocus={(e) => e.target.select()}
+                                          className="text-center font-bold h-10 flex-1 text-lg border-2 border-primary/20 focus:border-primary"
+                                          placeholder="Type quantity"
+                                        />
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => deselectItem(p.id)}>
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => deselectItem(p.id)}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
                                   </div>
 
                                   {watchType === 'IN' && (
@@ -579,30 +585,92 @@ export function OperationsWorkflow({ initialType = "OUT", onComplete }: { initia
 
               {/* Review step */}
               {currentStepList[step] === "Review" && (
-                <div className="space-y-3">
+                <div className="space-y-6">
+                  {/* Project Information */}
                   {requiresProject && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Project:</span>
-                      <span className="font-medium">{selectedProject?.name || "-"}</span>
+                    <div className="p-4 bg-muted/20 rounded-lg border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-muted-foreground">Project:</span>
+                        <span className="font-semibold">{selectedProject?.name || "-"}</span>
+                      </div>
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Items:</div>
-                    {items.map((it, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <span>{it.productName} ({it.sku})</span>
-                        <span>
-                          {watchType === "OUT" ? "-" : "+"}
-                          {it.quantity} {it.unit}
-                          {watchType === "IN" && it.unitCost ? ` • $${Number(it.unitCost).toFixed(2)}/u` : ""}
-                        </span>
+
+                  {/* Transaction Summary */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Transaction Summary</h3>
+                      <Badge variant="outline" className="text-sm">
+                        {watchType === 'IN' ? 'Stock In' : watchType === 'OUT' ? 'Stock Out' : 'Return'}
+                      </Badge>
+                    </div>
+
+                    {/* Items Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/30 p-3 grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b">
+                        <div className="col-span-4">Item</div>
+                        <div className="col-span-2 text-center">Quantity</div>
+                        <div className="col-span-3 text-center">Unit Price</div>
+                        <div className="col-span-3 text-right">Total</div>
                       </div>
-                    ))}
+                      {items.map((it, i) => {
+                        // Calculate unit price and total
+                        let unitPrice = 0;
+                        let total = 0;
+                        
+                        if (watchType === 'IN') {
+                          // For Stock In, use the entered unit cost
+                          unitPrice = Number(it.unitCost) || 0;
+                          total = unitPrice * it.quantity;
+                        } else {
+                          // For Stock Out/Return, use the product's stored unit price (MAUC)
+                          unitPrice = Number(it.productUnitPrice) || 0;
+                          total = unitPrice * it.quantity;
+                        }
+                        
+                        return (
+                          <div key={i} className="p-3 grid grid-cols-12 gap-2 text-sm border-b last:border-b-0 hover:bg-muted/10">
+                            <div className="col-span-4 font-medium">
+                              <div className="truncate">{it.productName}</div>
+                              <div className="text-xs text-muted-foreground">{it.unit}</div>
+                            </div>
+                            <div className="col-span-2 text-center font-semibold text-primary">
+                              {watchType === "OUT" ? "-" : "+"}{it.quantity}
+                            </div>
+                            <div className="col-span-3 text-center font-mono">
+                              ${unitPrice.toFixed(2)}
+                            </div>
+                            <div className="col-span-3 text-right font-bold font-mono">
+                              ${total.toFixed(2)}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      
+                      {/* Total Row */}
+                      <div className="bg-primary/5 p-4 grid grid-cols-12 gap-2 border-t-2 border-primary/20">
+                        <div className="col-span-6 text-lg font-semibold">
+                          Total Transaction Value:
+                        </div>
+                        <div className="col-span-6 text-right text-xl font-bold font-mono text-primary">
+                          ${items.reduce((sum, it) => {
+                            const unitPrice = watchType === 'IN' 
+                              ? Number(it.unitCost) || 0 
+                              : Number(it.productUnitPrice) || 0;
+                            return sum + (unitPrice * it.quantity);
+                          }, 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Reason */}
                   {form.getValues("reason") && (
-                    <div className="flex items-start justify-between">
-                      <span className="text-muted-foreground">Reason:</span>
-                      <span className="font-medium max-w-[70%] text-right">{form.getValues("reason")}</span>
+                    <div className="p-4 bg-muted/20 rounded-lg border">
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm font-medium text-muted-foreground">Reason:</span>
+                        <span className="font-medium max-w-[70%] text-right text-sm">{form.getValues("reason")}</span>
+                      </div>
                     </div>
                   )}
                 </div>
